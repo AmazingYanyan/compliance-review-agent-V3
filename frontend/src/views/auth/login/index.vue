@@ -73,7 +73,7 @@
               </ElButton>
             </div>
 
-            <div class="mt-5 text-sm text-gray-600">
+            <div v-if="authStore.registrationEnabled" class="mt-5 text-sm text-gray-600">
               <span>{{ $t('login.noAccount') }}</span>
               <RouterLink class="text-theme" :to="{ name: 'Register' }">{{
                 $t('login.register')
@@ -90,6 +90,7 @@
   import { useI18n } from 'vue-i18n'
   import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
   import { useUserStore } from '@/store/modules/user'
+  import { useAuthStore } from '@/store/modules/auth'
   import { HttpError } from '@/utils/http/error'
   import { fetchLogin } from '@/api/auth'
   import { useBounce } from '@/hooks/core/useBounce'
@@ -98,6 +99,7 @@
 
   const { t, locale } = useI18n()
   const userStore = useUserStore()
+  const authStore = useAuthStore()
   const router = useRouter()
   const route = useRoute()
   const { bounceKey, triggerBounce } = useBounce()
@@ -134,6 +136,9 @@
     if (typeof email === 'string' && email) {
       formData.email = email
     }
+
+    // 拉取公开配置：注册关闭时隐藏「注册」入口
+    authStore.loadAuthConfig()
   })
 
   // 登录

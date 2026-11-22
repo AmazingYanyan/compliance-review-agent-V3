@@ -5,6 +5,7 @@
 ===========================================  ==========================================
 方法与路径                                     说明
 ===========================================  ==========================================
+``GET /api/v1/auth/config``                    公开配置（当前环境是否开放注册）
 ``POST /api/v1/auth/register``                 注册，HTTP 201；重复邮箱 409
 ``POST /api/v1/auth/login``                    登录，返回 ``data.accessToken`` + refresh Cookie
 ``POST /api/v1/auth/refresh``                  刷新，轮换 refresh token
@@ -21,7 +22,13 @@ from app.api.deps import require_trusted_origin
 from app.core.config import settings
 from app.core.responses import AppError, ApiResponse, success
 from app.db.session import get_db
-from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse, UserResponse
+from app.schemas.auth import (
+    AuthConfigResponse,
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+    UserResponse,
+)
 from app.services import auth_service
 from app.services.registration import EmailAlreadyExistsError, create_user_with_welcome_task
 
@@ -52,6 +59,15 @@ def _delete_refresh_cookie(response: Response) -> None:
         secure=settings.cookie_secure,
         samesite=settings.cookie_samesite,
     )
+
+
+@router.get("/config", response_model=ApiResponse[AuthConfigResponse], summary="公开认证配置")
+async def auth_config() -> dict:
+    """返回前端所需的公开配置。
+
+    目前只有注册开关：前端据此隐藏「注册」入口，直接访问注册页时也给出提示。
+    """
+    return success(data={"registrationEnabled": settings.registration_enabled})
 
 
 @router.post(

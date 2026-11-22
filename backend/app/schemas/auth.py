@@ -96,7 +96,16 @@ class HealthResponse(BaseModel):
     version: str
 
 
+class AuthConfigResponse(BaseModel):
+    """公开的认证配置（前端据此隐藏注册入口）。"""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    registration_enabled: bool = Field(alias="registrationEnabled")
+
+
 __all__ = [
+    "AuthConfigResponse",
     "DISPLAY_NAME_MAX_LENGTH",
     "DISPLAY_NAME_MIN_LENGTH",
     "PASSWORD_MAX_LENGTH",

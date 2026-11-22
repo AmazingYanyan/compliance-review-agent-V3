@@ -19,9 +19,6 @@
       "title": "搜索"
     },
     "user": {
-      "userCenter": "个人中心",
-      "docs": "使用文档",
-      "github": "Github",
       "lockScreen": "锁定屏幕",
       "logout": "退出登录"
     },
@@ -150,8 +147,8 @@
   },
   "login": {
     "leftView": {
-      "title": "一款兼具设计美学与高效开发的后台系统",
-      "subTitle": "美观实用的界面，经过视觉优化，确保卓越的用户体验"
+      "title": "统一受理、审查与留痕的合规任务工作台",
+      "subTitle": "在一个界面内完成合规任务的接收、审查与全过程留痕"
     },
     "title": "欢迎回来",
     "subTitle": "输入邮箱和密码登录",
@@ -182,15 +179,7 @@
   },
   "dashboard": {
     "title": "工作台",
-    "greeting": "你好，{name}",
-    "profileTitle": "当前账号",
-    "displayName": "显示名",
-    "email": "邮箱",
-    "sessionTitle": "会话信息",
-    "signedIn": "已登录",
-    "sessionDesc": "访问令牌仅保存在浏览器内存中，刷新页面时会用 HttpOnly Cookie 自动续期。",
-    "logout": "退出登录",
-    "logoutConfirm": "确定要退出登录吗？"
+    "subtitle": "合规审查任务在这里统一受理、审查与留痕。"
   },
   "forgetPassword": {
     "title": "忘记密码？",
@@ -261,8 +250,7 @@
       "title": "内嵌页面"
     },
     "dashboard": {
-      "title": "仪表盘",
-      "console": "工作台"
+      "title": "工作台"
     },
     "result": {
       "title": "结果页面",

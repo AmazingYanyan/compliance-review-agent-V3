@@ -9,13 +9,17 @@
 
 ## 当前状态
 
-- 本轮范围：注册、登录、退出、极简 `/dashboard`，前后端已打通真实 API + PostgreSQL 18。
-- 已验证：浏览器全链路（注册 → 登录 → `/dashboard` → 刷新保持登录 → 退出 → 再次访问 `/dashboard` 回登录页）；
-  错误密码、重复邮箱、两次密码不一致、未登录直接访问受保护页；桌面 1440 与窄屏 390 布局。
-- 已验证：提交中按钮 loading + disabled、键盘 Tab 焦点环、错误密码提示为「邮箱或密码错误」。
-- 已验证：`backend` 13 个 pytest 用例通过；`pnpm build`（含 `vue-tsc --noEmit`）0 error。
-- 已验证：Procrastinate 欢迎任务在注册事务内投递，worker 独立消费成功；投递失败时注册整体回滚。
-- 动态菜单 / 权限接口已从认证链路解耦；本轮只保留静态受保护路由。
+- 本轮范围：修注册页版式、统一系统名称、移除演示浮层、`/dashboard` 接入 ADP 原生主布局、注册开关联动。
+- `/dashboard` 现为「父路由 = `@views/index/index.vue`（AppLayout）+ 子路由 = `@views/dashboard/index.vue`」，
+  侧栏/折叠/顶栏/面包屑/标签页全部复用上游组件；菜单由本地静态路由 `staticMenuList` 提供，当前只有「工作台」。
+- 账号信息与退出已移入右上角头像菜单；退出走 `userStore.signOut()` → 真实 `POST /api/v1/auth/logout`。
+- 注册页版式已修复：恢复上游基线的 `@import '../login/style.css'`（此前丢失导致输入框横向铺满、标题贴顶）。
+- 已移除交付界面的上游演示件：右下角机器人（chat-window）、顶栏聊天入口、底部开发浮层（fast-enter）、设置引导气泡。
+- 已验证：浏览器全链路（注册 → 登录 → 工作台 → 刷新保持登录 → 头像菜单退出 → 未登录访问 `/dashboard` 回登录页）。
+- 已验证：退出时确实发出 `POST /api/v1/auth/logout`；注册页三状态（首次打开无红框 / 空提交 / 输入纠错）表单均保持对齐。
+- 已验证：桌面 1440 与窄屏 390 布局；窄屏侧栏默认收起、点击菜单按钮展开为 230px 覆盖层；内容区无横向溢出。
+- 已验证：`backend` 15 个 pytest 用例通过；`pnpm build`（含 `vue-tsc --noEmit`）0 error。
+- 截图见 `docs/screenshots/cp6-*.png`（登录/注册/工作台 × 桌面 1440 / 窄屏 390）。
 
 ## 运行方式
 
@@ -32,7 +36,8 @@
 
 | 方法与路径 | 说明 |
 | --- | --- |
-| `POST /api/v1/auth/register` | 入参 `displayName/email/password` → 201；重复邮箱 409 |
+| `GET /api/v1/auth/config` | 公开配置 → `data.registrationEnabled`（前端据此隐藏注册入口） |
+| `POST /api/v1/auth/register` | 入参 `displayName/email/password` → 201；重复邮箱 409；注册关闭 403 |
 | `POST /api/v1/auth/login` | 入参 `email/password` → `data.accessToken` + refresh Cookie；密码错 401 |
 | `POST /api/v1/auth/refresh` | 读 Cookie 轮换 refresh → 新 `data.accessToken` |
 | `POST /api/v1/auth/logout` | 撤销 refresh 会话并清 Cookie，可重复调用 |
@@ -44,4 +49,9 @@
 - 退出只撤销 refresh 会话；**已签发的 access token 在 15 分钟内仍可用**（无黑名单，见 DECISIONS D6）。
 - 开发账号密码固定，仅限本地；生产需替换 `JWT_SECRET` 并置 `COOKIE_SECURE=true`。
 - Procrastinate 的 `apply_schema_async` 只适用于空库，初始化脚本已做幂等判断（见 DECISIONS D7）。
-- 上游演示页面/动态菜单已删除，接入真实菜单时需重新引入 `RouteRegistry` / `MenuProcessor`（见 D2）。
+- 侧栏菜单目前为本地静态列表，接真实后端菜单时才需要 `RouteRegistry` / `MenuProcessor`（见 D2、D8）。
+- 顶栏「通知」按钮仍带上游演示红点，是否保留待产品确认。
+
+## 代码索引
+
+见 `HANDOFF_CODE.md`（已读源码的作用、调用关系、需修改位置）。

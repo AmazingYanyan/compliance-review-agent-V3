@@ -1,13 +1,13 @@
 # 合规审查智能体 V3
 
-合规审查智能体的工程起点。本轮交付范围：**登录、注册，以及用于验证认证链路的极简 `/dashboard`**。
+合规审查智能体的工程起点。本轮交付范围：**登录、注册，以及接入 ADP 原生主布局的工作台**。
 
 - 前端：`frontend/` — 基于上游 [art-design-pro](https://github.com/Daymychen/art-design-pro)（Vue 3 + TypeScript + Vite + Element Plus + Tailwind CSS）
 - 后端：`backend/` — FastAPI + Pydantic v2 + SQLAlchemy 2.x async + Alembic + PostgreSQL 18 + Argon2
 - 队列：Procrastinate（与业务库同一个 PostgreSQL）
 
 > 上游源码以原始提交 `f3aaf58eec1a0e988f162352c33862327a484f95` 导入，许可证与版权声明保留在 `frontend/LICENSE`。
-> 详见 [DECISIONS.md](DECISIONS.md) 与 [HANDOFF.md](HANDOFF.md)。
+> 详见 [DECISIONS.md](DECISIONS.md) 与 [HANDOFF.md](HANDOFF.md)。已读源码索引见 [HANDOFF_CODE.md](HANDOFF_CODE.md)。
 
 ## 快速开始
 
@@ -79,7 +79,7 @@ cd backend
 
 ```bash
 cd backend
-.venv/bin/python -m pytest -q           # 13 个用例，独立测试库 compliance_test
+.venv/bin/python -m pytest -q           # 15 个用例，独立测试库 compliance_test
 
 cd ../frontend
 pnpm build                              # vue-tsc --noEmit && vite build
@@ -96,7 +96,8 @@ cd backend
 ```
 
 - 默认账号：`demo@example.com` / `Demo@12345`（固定密码**仅用于开发**，生产环境脚本会直接拒绝执行）
-- 开发环境默认开启注册：`REGISTRATION_ENABLED=true`；关闭后后端 `POST /api/v1/auth/register` 返回 403
+- 开发环境默认开启注册：`REGISTRATION_ENABLED=true`；关闭后后端 `POST /api/v1/auth/register` 返回 403，
+  前端同步隐藏登录页的「注册」入口并拦截直接访问 `/auth/register`
 
 ### 环境变量
 
@@ -129,6 +130,7 @@ cd backend
 ├── docker-compose.yml # PostgreSQL 18 + backend + worker (+ frontend)
 ├── .env.example       # 环境变量样例
 ├── HANDOFF.md         # 交接说明（≤ 50 行）
+├── HANDOFF_CODE.md    # 已读源码索引：作用、调用关系、需修改位置
 ├── DECISIONS.md       # 关键实现取舍
 └── TEST_TODO.md       # 待补充的测试场景
 ```

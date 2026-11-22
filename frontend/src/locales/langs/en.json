@@ -19,9 +19,6 @@
       "title": "Search"
     },
     "user": {
-      "userCenter": "User center",
-      "docs": "Document",
-      "github": "Github",
       "lockScreen": "Lock screen",
       "logout": "Log out"
     },
@@ -150,8 +147,8 @@
   },
   "login": {
     "leftView": {
-      "title": "A backend system of beauty and efficiency",
-      "subTitle": "A sleek and practical interface for a great user experience"
+      "title": "One workspace to receive, review and trace compliance tasks",
+      "subTitle": "Receive, review and trace every compliance task in a single interface"
     },
     "title": "Welcome back",
     "subTitle": "Please enter your email and password to login",
@@ -181,16 +178,8 @@
     "logout": "Sign out"
   },
   "dashboard": {
-    "title": "Dashboard",
-    "greeting": "Hello, {name}",
-    "profileTitle": "Current account",
-    "displayName": "Display name",
-    "email": "Email",
-    "sessionTitle": "Session",
-    "signedIn": "Signed in",
-    "sessionDesc": "The access token only lives in browser memory; it is renewed automatically on reload via an HttpOnly cookie.",
-    "logout": "Sign out",
-    "logoutConfirm": "Are you sure you want to sign out?"
+    "title": "Workbench",
+    "subtitle": "Compliance review tasks are received, reviewed and traced here."
   },
   "forgetPassword": {
     "title": "Forgot password?",
@@ -261,8 +250,7 @@
       "title": "Outside"
     },
     "dashboard": {
-      "title": "Dashboard",
-      "console": "Console"
+      "title": "Workbench"
     },
     "result": {
       "title": "Result Page",

@@ -51,7 +51,8 @@ export const globalComponentsConfig: GlobalComponentConfig[] = [
     component: defineAsyncComponent(
       () => import('@/components/core/layouts/art-chat-window/index.vue')
     ),
-    enabled: true
+    // 交付界面不保留演示用的右下角聊天机器人
+    enabled: false
   },
   {
     name: '礼花效果',

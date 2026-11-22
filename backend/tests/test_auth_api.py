@@ -6,8 +6,10 @@
 
 from __future__ import annotations
 
+import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.core.config import settings
 from app.main import app
 from tests.conftest import TEST_DISPLAY_NAME, TEST_EMAIL, TEST_PASSWORD
 
@@ -208,3 +210,37 @@ async def test_health(client: AsyncClient) -> None:
     assert payload["code"] == 200
     assert payload["data"]["status"] == "ok"
     assert payload["data"]["database"] == "ok"
+
+
+async def test_auth_config_reports_registration_state(client: AsyncClient) -> None:
+    """公开配置返回当前是否开放注册（默认环境开放）。"""
+    response = await client.get("/api/v1/auth/config")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["code"] == 200
+    assert payload["data"]["registrationEnabled"] is True
+
+
+async def test_register_rejected_when_registration_disabled(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """注册关闭时，注册接口返回 HTTP 403。"""
+    monkeypatch.setattr(settings, "registration_enabled", False)
+
+    response = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "displayName": TEST_DISPLAY_NAME,
+            "email": TEST_EMAIL,
+            "password": TEST_PASSWORD,
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["code"] == 403
+    assert response.json()["msg"] == "当前环境未开放注册"
+
+    # 配置接口同步返回关闭状态
+    config = await client.get("/api/v1/auth/config")
+    assert config.json()["data"]["registrationEnabled"] is False

@@ -12,7 +12,7 @@
           <p class="sub-title">{{ $t('register.subTitle') }}</p>
 
           <ElForm
-            class="mt-7.5"
+            class="auth-form"
             ref="formRef"
             :model="formData"
             :rules="rules"
@@ -244,7 +244,16 @@
   }
 </script>
 
+<style scoped>
+  /* 与登录页共用同一份授权页容器样式（基线 00c7e78 的做法） */
+  @import '../login/style.css';
+</style>
+
 <style lang="scss" scoped>
+  .auth-form {
+    margin-top: 25px;
+  }
+
   .auth-error {
     margin-bottom: 4px;
   }

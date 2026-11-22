@@ -7,12 +7,27 @@ import request from '@/utils/http'
  * `utils/http` 已按 `code` 解包并只返回 `data`。
  *
  * 路径约定（与后端 HANDOFF.md 契约一致）：
+ * - GET  /api/v1/auth/config
  * - POST /api/v1/auth/register
  * - POST /api/v1/auth/login
  * - POST /api/v1/auth/refresh
  * - POST /api/v1/auth/logout
  * - GET  /api/v1/user/info
  */
+
+/**
+ * 获取公开认证配置
+ * 用于判断当前环境是否开放注册
+ * @returns 含 registrationEnabled 的响应
+ */
+export function fetchAuthConfig() {
+  return request.get<Api.Auth.AuthConfig>({
+    url: '/api/v1/auth/config',
+    showErrorMessage: false,
+    // 未登录时也会调用，不能触发 401 刷新流程
+    skipAuthRefresh: true
+  })
+}
 
 /**
  * 注册

@@ -62,6 +62,12 @@ declare namespace Api {
 
   /** 认证类型 */
   namespace Auth {
+    /** 公开认证配置 */
+    interface AuthConfig {
+      /** 当前环境是否开放注册 */
+      registrationEnabled: boolean
+    }
+
     /** 登录参数 */
     interface LoginParams {
       email: string

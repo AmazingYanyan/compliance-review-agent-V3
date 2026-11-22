@@ -23,7 +23,8 @@ export const headerBarConfig: HeaderBarFeatureConfig = {
     description: '页面刷新按钮'
   },
   fastEnter: {
-    enabled: true,
+    // 交付界面不保留上游演示用的开发浮层
+    enabled: false,
     description: '快速入口功能，提供常用应用和链接的快速访问'
   },
   breadcrumb: {
@@ -43,7 +44,8 @@ export const headerBarConfig: HeaderBarFeatureConfig = {
     description: '通知中心，显示系统通知和消息'
   },
   chat: {
-    enabled: true,
+    // 交付界面不保留上游演示用的聊天入口
+    enabled: false,
     description: '聊天功能，提供实时沟通'
   },
   language: {

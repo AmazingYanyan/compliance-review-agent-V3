@@ -13,9 +13,11 @@ import NProgress from 'nprogress'
 import { useSettingStore } from '@/store/modules/setting'
 import { useUserStore } from '@/store/modules/user'
 import { useMenuStore } from '@/store/modules/menu'
+import { useAuthStore } from '@/store/modules/auth'
 import { setPageTitle } from '@/utils/router'
+import { setWorktab } from '@/utils/navigation/worktab'
 import { RoutesAlias } from '../routesAlias'
-import { DASHBOARD_PATH } from '../routes/staticRoutes'
+import { DASHBOARD_PATH, staticMenuList } from '../routes/staticRoutes'
 import { fetchGetUserInfo, adaptUserInfo } from '@/api/auth'
 import { refreshAccessToken } from '@/utils/http/refresh'
 
@@ -78,20 +80,31 @@ async function handleRouteGuard(
       next({ name: 'Login', query: { redirect: to.fullPath }, replace: true })
       return
     }
+    // 会话就绪后恢复本地静态菜单（登出会清空菜单与首页路径）
+    useMenuStore().setMenuList(staticMenuList)
   } else if (userStore.isLogin && isAuthPage(to.path)) {
     // 3. 已登录访问登录 / 注册页 → 跳回工作台
     next({ path: DASHBOARD_PATH, replace: true })
     return
+  } else if (to.path === RoutesAlias.Register) {
+    // 4. 注册关闭时，直接访问注册页也回到登录页
+    const authStore = useAuthStore()
+    await authStore.loadAuthConfig()
+    if (!authStore.registrationEnabled) {
+      next({ name: 'Login', replace: true })
+      return
+    }
   }
 
-  // 4. 正常放行
+  // 5. 正常放行
   if (to.matched.length > 0) {
     setPageTitle(to)
+    setWorktab(to)
     next()
     return
   }
 
-  // 5. 未匹配到路由，跳转到 404
+  // 6. 未匹配到路由，跳转到 404
   next({ name: 'Exception404' })
 }
 
