@@ -12,6 +12,8 @@ venv/
 .env
 .env.local
 !.env.example
+# 前端公共环境变量（端口、应用标题等）需要入库，不含密钥
+!frontend/.env
 
 # --- Node (frontend has its own .gitignore, this is a safety net) ---
 node_modules/

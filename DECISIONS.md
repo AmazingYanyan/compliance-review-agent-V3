@@ -32,3 +32,16 @@
 - **选择**：退出只撤销 refresh 会话并清 Cookie，不做 access token 黑名单。
 - **原因**：本轮无 token 吊销基础设施；JWT 无状态验证天然具备该行为。
 - **代价**：退出后旧 access token 在 15 分钟有效期内仍可使用，需要在文档中明确告知后续业务。
+
+### D7 · Procrastinate 队列表初始化做成幂等
+- **选择**：`app/queue/setup.py` 先查 `procrastinate_jobs` 表与枚举类型是否已存在，存在则跳过 `apply_schema_async()`。
+- **原因**：Procrastinate 的 `apply_schema_async` 内部是 `CREATE TYPE` / `CREATE TABLE`（不带 `IF NOT EXISTS`），
+  只能作用于空库；Compose 每次 `up` 都会跑一次迁移服务，不做幂等处理第二次就会失败并阻塞后端启动。
+- **代价**：Procrastinate 升级时不会自动应用官方迁移脚本，需要人工比对 `migrations/` 目录。
+
+### D8 · 测试跑在独立的 PostgreSQL 库，不使用 SQLite 替身
+- **选择**：`tests/conftest.py` 自动创建 `compliance_test` 库，执行 Alembic 迁移与队列表初始化，用例前清表。
+- **原因**：注册事务依赖真实 PostgreSQL 的唯一约束与 Procrastinate 队列表，SQLite 无法覆盖；
+  隔离测试库还能避免测试数据污染开发库与运行中的 worker。
+- **代价**：运行 pytest 需要一个可访问的 PostgreSQL 实例（CI 里需要先起服务）。
+
