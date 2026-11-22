@@ -98,28 +98,10 @@ const fastEnterConfig: FastEnterConfig = {
       routeName: 'Register'
     },
     {
-      name: '忘记密码',
+      name: '工作台',
       enabled: true,
       order: 3,
-      routeName: 'ForgetPassword'
-    },
-    {
-      name: '定价',
-      enabled: true,
-      order: 4,
-      routeName: 'Pricing'
-    },
-    {
-      name: '个人中心',
-      enabled: true,
-      order: 5,
-      routeName: 'UserCenter'
-    },
-    {
-      name: '留言管理',
-      enabled: true,
-      order: 6,
-      routeName: 'ArticleComment'
+      routeName: 'Dashboard'
     }
   ]
 }

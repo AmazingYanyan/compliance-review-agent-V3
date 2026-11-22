@@ -10,6 +10,7 @@
         <div class="form">
           <h3 class="title">{{ $t('register.title') }}</h3>
           <p class="sub-title">{{ $t('register.subTitle') }}</p>
+
           <ElForm
             class="mt-7.5"
             ref="formRef"
@@ -17,13 +18,34 @@
             :rules="rules"
             label-position="top"
             :key="formKey"
+            :disabled="loading"
           >
-            <ElFormItem prop="username">
+            <ElFormItem prop="displayName">
               <ElInput
                 class="custom-height"
-                v-model.trim="formData.username"
-                :placeholder="$t('register.placeholder.username')"
-              />
+                v-model.trim="formData.displayName"
+                :placeholder="$t('register.placeholder.displayName')"
+                autocomplete="name"
+                clearable
+              >
+                <template #prefix>
+                  <ArtSvgIcon icon="ri:user-line" />
+                </template>
+              </ElInput>
+            </ElFormItem>
+
+            <ElFormItem prop="email">
+              <ElInput
+                class="custom-height"
+                v-model.trim="formData.email"
+                :placeholder="$t('register.placeholder.email')"
+                autocomplete="email"
+                clearable
+              >
+                <template #prefix>
+                  <ArtSvgIcon icon="ri:mail-line" />
+                </template>
+              </ElInput>
             </ElFormItem>
 
             <ElFormItem prop="password">
@@ -32,9 +54,13 @@
                 v-model.trim="formData.password"
                 :placeholder="$t('register.placeholder.password')"
                 type="password"
-                autocomplete="off"
+                autocomplete="new-password"
                 show-password
-              />
+              >
+                <template #prefix>
+                  <ArtSvgIcon icon="ri:lock-password-line" />
+                </template>
+              </ElInput>
             </ElFormItem>
 
             <ElFormItem prop="confirmPassword">
@@ -43,30 +69,34 @@
                 v-model.trim="formData.confirmPassword"
                 :placeholder="$t('register.placeholder.confirmPassword')"
                 type="password"
-                autocomplete="off"
-                @keyup.enter="register"
+                autocomplete="new-password"
                 show-password
-              />
+                @keyup.enter="register"
+              >
+                <template #prefix>
+                  <ArtSvgIcon icon="ri:shield-check-line" />
+                </template>
+              </ElInput>
             </ElFormItem>
 
-            <ElFormItem prop="agreement">
-              <ElCheckbox v-model="formData.agreement">
-                {{ $t('register.agreeText') }}
-                <RouterLink
-                  style="color: var(--theme-color); text-decoration: none"
-                  to="/privacy-policy"
-                  >{{ $t('register.privacyPolicy') }}</RouterLink
-                >
-              </ElCheckbox>
-            </ElFormItem>
+            <!-- 字段错误 / 服务异常提示 -->
+            <ElAlert
+              v-if="errorMessage"
+              class="auth-error"
+              type="error"
+              :title="errorMessage"
+              show-icon
+              :closable="false"
+            />
 
             <div style="margin-top: 15px">
               <ElButton
-                class="w-full custom-height"
+                :key="bounceKey"
+                class="w-full custom-height motion-press"
                 type="primary"
-                @click="register"
                 :loading="loading"
-                v-ripple
+                :disabled="loading"
+                @click="register"
               >
                 {{ $t('register.submitBtnText') }}
               </ElButton>
@@ -87,28 +117,34 @@
 
 <script setup lang="ts">
   import { useI18n } from 'vue-i18n'
-  import type { FormInstance, FormRules } from 'element-plus'
+  import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+  import { HttpError } from '@/utils/http/error'
+  import { fetchRegister } from '@/api/auth'
+  import { useBounce } from '@/hooks/core/useBounce'
 
   defineOptions({ name: 'Register' })
 
   interface RegisterForm {
-    username: string
+    displayName: string
+    email: string
     password: string
     confirmPassword: string
-    agreement: boolean
   }
 
-  const USERNAME_MIN_LENGTH = 3
-  const USERNAME_MAX_LENGTH = 20
-  const PASSWORD_MIN_LENGTH = 6
-  const REDIRECT_DELAY = 1000
+  const DISPLAY_NAME_MIN_LENGTH = 2
+  const DISPLAY_NAME_MAX_LENGTH = 32
+  const PASSWORD_MIN_LENGTH = 8
+  /** 注册成功后跳转登录页的延迟，给出反馈时间 */
+  const REDIRECT_DELAY = 900
 
   const { t, locale } = useI18n()
   const router = useRouter()
   const formRef = ref<FormInstance>()
+  const { bounceKey, triggerBounce } = useBounce()
 
   const loading = ref(false)
   const formKey = ref(0)
+  const errorMessage = ref('')
 
   // 监听语言切换，重置表单
   watch(locale, () => {
@@ -116,125 +152,110 @@
   })
 
   const formData = reactive<RegisterForm>({
-    username: '',
+    displayName: '',
+    email: '',
     password: '',
-    confirmPassword: '',
-    agreement: false
+    confirmPassword: ''
   })
 
-  /**
-   * 验证密码
-   * 当密码输入后，如果确认密码已填写，则触发确认密码的验证
-   */
-  const validatePassword = (_rule: any, value: string, callback: (error?: Error) => void) => {
-    if (!value) {
-      callback(new Error(t('register.placeholder.password')))
-      return
-    }
-
-    if (formData.confirmPassword) {
-      formRef.value?.validateField('confirmPassword')
-    }
-
-    callback()
-  }
-
-  /**
-   * 验证确认密码
-   * 检查确认密码是否与密码一致
-   */
-  const validateConfirmPassword = (
-    _rule: any,
-    value: string,
-    callback: (error?: Error) => void
-  ) => {
-    if (!value) {
-      callback(new Error(t('register.rule.confirmPasswordRequired')))
-      return
-    }
-
-    if (value !== formData.password) {
-      callback(new Error(t('register.rule.passwordMismatch')))
-      return
-    }
-
-    callback()
-  }
-
-  /**
-   * 验证用户协议
-   * 确保用户已勾选同意协议
-   */
-  const validateAgreement = (_rule: any, value: boolean, callback: (error?: Error) => void) => {
-    if (!value) {
-      callback(new Error(t('register.rule.agreementRequired')))
-      return
-    }
-    callback()
-  }
-
-  const rules = computed<FormRules<RegisterForm>>(() => ({
-    username: [
-      { required: true, message: t('register.placeholder.username'), trigger: 'blur' },
+  const rules = computed<FormRules>(() => ({
+    displayName: [
+      { required: true, message: t('register.rule.displayNameRequired'), trigger: 'blur' },
       {
-        min: USERNAME_MIN_LENGTH,
-        max: USERNAME_MAX_LENGTH,
-        message: t('register.rule.usernameLength'),
+        min: DISPLAY_NAME_MIN_LENGTH,
+        max: DISPLAY_NAME_MAX_LENGTH,
+        message: t('register.rule.displayNameLength'),
         trigger: 'blur'
       }
     ],
-    password: [
-      { required: true, validator: validatePassword, trigger: 'blur' },
-      { min: PASSWORD_MIN_LENGTH, message: t('register.rule.passwordLength'), trigger: 'blur' }
+    email: [
+      { required: true, message: t('register.rule.emailRequired'), trigger: 'blur' },
+      { type: 'email', message: t('register.rule.emailInvalid'), trigger: ['blur', 'change'] }
     ],
-    confirmPassword: [{ required: true, validator: validateConfirmPassword, trigger: 'blur' }],
-    agreement: [{ validator: validateAgreement, trigger: 'change' }]
+    password: [
+      { required: true, message: t('register.rule.passwordRequired'), trigger: 'blur' },
+      { min: PASSWORD_MIN_LENGTH, message: t('register.rule.passwordLength'), trigger: 'blur' },
+      {
+        // 密码需同时包含字母和数字，与后端规则保持一致
+        validator: (_rule, value: string, callback: (error?: Error) => void) => {
+          if (!value || /^(?=.*[A-Za-z])(?=.*\d).+$/.test(value)) {
+            callback()
+          } else {
+            callback(new Error(t('register.rule.passwordStrength')))
+          }
+        },
+        trigger: 'blur'
+      }
+    ],
+    confirmPassword: [
+      { required: true, message: t('register.rule.confirmPasswordRequired'), trigger: 'blur' },
+      {
+        validator: (_rule, value: string, callback: (error?: Error) => void) => {
+          if (!value || value === formData.password) {
+            callback()
+          } else {
+            callback(new Error(t('register.rule.passwordMismatch')))
+          }
+        },
+        trigger: 'blur'
+      }
+    ]
   }))
 
-  /**
-   * 注册用户
-   * 验证表单后提交注册请求
-   */
+  // 注册
   const register = async () => {
-    if (!formRef.value) return
+    if (!formRef.value || loading.value) return
+
+    errorMessage.value = ''
 
     try {
-      await formRef.value.validate()
+      // 表单验证（含两次密码一致性校验）
+      // validate() 在校验不通过时会 reject，这里统一转成 false
+      const valid = await formRef.value.validate().catch(() => false)
+      if (!valid) return
+
       loading.value = true
 
-      // TODO: 替换为真实 API 调用
-      // const params = {
-      //   username: formData.username,
-      //   password: formData.password
-      // }
-      // const res = await AuthService.register(params)
-      // if (res.code === ApiStatus.success) {
-      //   ElMessage.success('注册成功')
-      //   toLogin()
-      // }
+      // 注册请求
+      await fetchRegister({
+        displayName: formData.displayName,
+        email: formData.email,
+        password: formData.password
+      })
 
-      // 模拟注册请求
+      // 注册成功：回登录页并预填邮箱
+      triggerBounce()
+      ElMessage.success(t('auth.registerSuccess'))
+
       setTimeout(() => {
-        loading.value = false
-        ElMessage.success('注册成功')
-        toLogin()
+        router.push({ name: 'Login', query: { email: formData.email } })
       }, REDIRECT_DELAY)
     } catch (error) {
-      console.error('表单验证失败:', error)
+      if (error instanceof HttpError) {
+        // 邮箱重复（409）/ 字段校验（422）/ 服务异常
+        errorMessage.value = error.message
+      } else {
+        console.error('[Register] Unexpected error:', error)
+        errorMessage.value = t('httpMsg.requestFailed')
+      }
+    } finally {
       loading.value = false
     }
   }
-
-  /**
-   * 跳转到登录页面
-   */
-  const toLogin = () => {
-    setTimeout(() => {
-      router.push({ name: 'Login' })
-    }, REDIRECT_DELAY)
-  }
 </script>
 
-<style scoped>
-  @import '../login/style.css';
+<style lang="scss" scoped>
+  .auth-error {
+    margin-bottom: 4px;
+  }
+
+  :deep(.el-form-item) {
+    margin-bottom: 18px;
+  }
+
+  :deep(.el-form-item__label) {
+    padding-bottom: 4px;
+    font-size: 13px;
+    color: var(--art-gray-700);
+  }
 </style>

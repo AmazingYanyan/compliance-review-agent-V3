@@ -64,23 +64,47 @@ declare namespace Api {
   namespace Auth {
     /** 登录参数 */
     interface LoginParams {
-      userName: string
+      email: string
       password: string
     }
 
-    /** 登录响应 */
-    interface LoginResponse {
-      token: string
-      refreshToken: string
+    /** 注册参数 */
+    interface RegisterParams {
+      displayName: string
+      email: string
+      password: string
     }
 
-    /** 用户信息 */
-    interface UserInfo {
-      buttons: string[]
-      roles: string[]
-      userId: number
-      userName: string
+    /** 登录 / 刷新响应（refresh token 走 HttpOnly Cookie，不出现在响应体里） */
+    interface LoginResponse {
+      accessToken: string
+    }
+
+    /** 注册响应 */
+    interface RegisterResponse {
+      id: number
+      displayName: string
       email: string
+    }
+
+    /** 后端返回的原始用户信息 */
+    interface RawUserInfo {
+      id: number
+      displayName: string
+      email: string
+    }
+
+    /** 用户信息（前端适配层：补齐上游组件依赖的 username / roles / buttons） */
+    interface UserInfo {
+      id: number
+      displayName: string
+      email: string
+      /** 兼容上游组件的别名 */
+      userName: string
+      /** 兼容上游组件的别名 */
+      username: string
+      roles: string[]
+      buttons: string[]
       avatar?: string
     }
   }

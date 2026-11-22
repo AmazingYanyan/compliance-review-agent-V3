@@ -1,0 +1,56 @@
+// 动效样式
+// 参数由 `src/config/motion.ts` 统一下发为 CSS 自定义属性
+// 在 `prefers-reduced-motion: reduce` 下整体关闭
+
+// 按压反馈：主按钮、登录 / 注册切换、退出等
+.motion-press {
+  transform-origin: center;
+  transition:
+    transform var(--motion-duration-fast, 150ms) var(--motion-easing-standard, ease),
+    box-shadow var(--motion-duration-fast, 150ms) var(--motion-easing-standard, ease);
+
+  &:active {
+    transform: scale(var(--motion-scale-press, 0.96));
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--el-color-primary);
+    outline-offset: 2px;
+  }
+}
+
+// 轻量回弹：操作成功后触发一次
+.motion-bounce {
+  animation: motion-bounce var(--motion-duration-bounce, 420ms)
+    var(--motion-easing-entrance, ease) both;
+}
+
+@keyframes motion-bounce {
+  0% {
+    transform: scale(var(--motion-scale-press, 0.96));
+  }
+
+  55% {
+    transform: scale(var(--motion-scale-bounce, 1.03));
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+// 键盘可达性：统一焦点环
+.motion-focus-ring:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 2px;
+}
+
+// 尊重系统的「减弱动效」设置
+@media (prefers-reduced-motion: reduce) {
+  .motion-press,
+  .motion-bounce {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}

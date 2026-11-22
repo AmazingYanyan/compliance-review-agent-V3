@@ -42,6 +42,7 @@ import { setPageTitle } from '@/utils/router'
 import { resetRouterState } from '@/router/guards/beforeEach'
 import { useMenuStore } from './menu'
 import { StorageConfig } from '@/utils/storage/storage-config'
+import { fetchLogout } from '@/api/auth'
 
 /**
  * 用户状态管理
@@ -62,10 +63,8 @@ export const useUserStore = defineStore(
     const info = ref<Partial<Api.Auth.UserInfo>>({})
     // 搜索历史记录
     const searchHistory = ref<AppRouteRecord[]>([])
-    // 访问令牌
+    // 访问令牌（仅存在于内存，不持久化）
     const accessToken = ref('')
-    // 刷新令牌
-    const refreshToken = ref('')
 
     // 计算属性：获取用户信息
     const getUserInfo = computed(() => info.value)
@@ -124,29 +123,18 @@ export const useUserStore = defineStore(
     }
 
     /**
-     * 设置令牌
-     * @param newAccessToken 访问令牌
-     * @param newRefreshToken 刷新令牌（可选）
+     * 设置访问令牌
+     * @param newAccessToken 访问令牌（仅存内存）
      */
-    const setToken = (newAccessToken: string, newRefreshToken?: string) => {
+    const setToken = (newAccessToken: string) => {
       accessToken.value = newAccessToken
-      if (newRefreshToken) {
-        refreshToken.value = newRefreshToken
-      }
     }
 
     /**
-     * 退出登录
-     * 清空所有用户相关状态并跳转到登录页
-     * 如果是同一账号重新登录，保留工作台标签页
+     * 清理本地会话状态（不跳转路由）
+     * 用于会话失效时由路由守卫调用，避免在导航过程中再次 push 造成冲突
      */
-    const logOut = () => {
-      // 保存当前用户 ID，用于下次登录时判断是否为同一用户
-      const currentUserId = info.value.userId
-      if (currentUserId) {
-        localStorage.setItem(StorageConfig.LAST_USER_ID_KEY, String(currentUserId))
-      }
-
+    const clearSession = () => {
       // 清空用户信息
       info.value = {}
       // 重置登录状态
@@ -157,15 +145,28 @@ export const useUserStore = defineStore(
       lockPassword.value = ''
       // 清空访问令牌
       accessToken.value = ''
-      // 清空刷新令牌
-      refreshToken.value = ''
-      // 注意：不清空工作台标签页，等下次登录时根据用户判断
       // 移除iframe路由缓存
       sessionStorage.removeItem('iframeRoutes')
       // 清空主页路径
       useMenuStore().setHomePath('')
       // 重置路由状态
       resetRouterState(500)
+    }
+
+    /**
+     * 退出登录（本地清理）
+     * 只清理前端状态并跳转登录页，不调用后端接口。
+     * 适用于 401 等会话已失效的场景。
+     */
+    const logOut = () => {
+      // 保存当前用户 ID，用于下次登录时判断是否为同一用户
+      const currentUserId = info.value.id
+      if (currentUserId) {
+        localStorage.setItem(StorageConfig.LAST_USER_ID_KEY, String(currentUserId))
+      }
+
+      clearSession()
+
       // 跳转到登录页，携带当前路由作为 redirect 参数
       const currentRoute = router.currentRoute.value
       const redirect = currentRoute.path !== '/login' ? currentRoute.fullPath : undefined
@@ -176,13 +177,28 @@ export const useUserStore = defineStore(
     }
 
     /**
+     * 退出登录（完整流程）
+     * 先调用后端撤销当前 refresh 会话并清除 Cookie，再做本地清理。
+     * 后端不可用时也要保证本地会话被清掉。
+     */
+    const signOut = async () => {
+      try {
+        await fetchLogout()
+      } catch (error) {
+        console.warn('[UserStore] 退出接口调用失败，仍执行本地清理', error)
+      } finally {
+        logOut()
+      }
+    }
+
+    /**
      * 检查并清理工作台标签页
      * 如果不是同一用户登录，清空工作台标签页
      * 应在登录成功后调用
      */
     const checkAndClearWorktabs = () => {
       const lastUserId = localStorage.getItem(StorageConfig.LAST_USER_ID_KEY)
-      const currentUserId = info.value.userId
+      const currentUserId = info.value.id
 
       // 无法获取当前用户 ID，跳过检查
       if (!currentUserId) return
@@ -211,7 +227,6 @@ export const useUserStore = defineStore(
       info,
       searchHistory,
       accessToken,
-      refreshToken,
       getUserInfo,
       getSettingState,
       getWorktabState,
@@ -222,14 +237,20 @@ export const useUserStore = defineStore(
       setLockStatus,
       setLockPassword,
       setToken,
+      clearSession,
       logOut,
+      signOut,
       checkAndClearWorktabs
     }
   },
   {
     persist: {
       key: 'user',
-      storage: localStorage
+      storage: localStorage,
+      // 只持久化语言偏好：
+      // access token 只存在内存，登录状态由 refresh cookie 恢复，
+      // 用户信息每次进入受保护页面时重新向后端拉取。
+      pick: ['language']
     }
   }
 )

@@ -7,7 +7,11 @@
       shadow: 'never'
     }"
   >
-    <RouterView></RouterView>
+    <RouterView v-slot="{ Component, route }">
+      <Transition name="slide-left" mode="out-in">
+        <component :is="Component" :key="route.path" />
+      </Transition>
+    </RouterView>
   </ElConfigProvider>
 </template>
 

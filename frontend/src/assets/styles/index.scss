@@ -21,3 +21,6 @@
 
 // 主题切换圆形扩散动画
 @use './core/theme-animation.scss';
+
+// 全局动效（按压反馈 / 轻量回弹）
+@use './core/motion.scss';

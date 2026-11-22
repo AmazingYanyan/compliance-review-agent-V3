@@ -4,8 +4,8 @@
  *
  * ## 主要功能
  *
- * - 请求/响应拦截器（自动添加 Token、统一错误处理）
- * - 401 未授权自动登出（带防抖机制）
+ * - 请求/响应拦截器（自动添加 Bearer Token、统一错误处理）
+ * - 401 未授权自动刷新会话（并发共享一次刷新，原请求最多重试一次）
  * - 请求失败自动重试（可配置）
  * - 统一的成功/错误消息提示
  * - 支持 GET/POST/PUT/DELETE 等常用方法
@@ -20,22 +20,22 @@ import { ApiStatus } from './status'
 import { HttpError, handleError, showError, showSuccess } from './error'
 import { $t } from '@/locales'
 import { BaseResponse } from '@/types'
+import { refreshAccessToken } from './refresh'
 
 /** 请求配置常量 */
 const REQUEST_TIMEOUT = 15000
 const LOGOUT_DELAY = 500
 const MAX_RETRIES = 0
 const RETRY_DELAY = 1000
-const UNAUTHORIZED_DEBOUNCE_TIME = 3000
-
-/** 401防抖状态 */
-let isUnauthorizedErrorShown = false
-let unauthorizedTimer: NodeJS.Timeout | null = null
 
 /** 扩展 AxiosRequestConfig */
 interface ExtendedAxiosRequestConfig extends AxiosRequestConfig {
   showErrorMessage?: boolean
   showSuccessMessage?: boolean
+  /** 该请求不参与 401 自动刷新（登录 / 刷新 / 退出接口自身） */
+  skipAuthRefresh?: boolean
+  /** 内部标记：该请求已经因为 401 重试过一次 */
+  _retried?: boolean
 }
 
 const { VITE_API_URL, VITE_WITH_CREDENTIALS } = import.meta.env
@@ -44,7 +44,8 @@ const { VITE_API_URL, VITE_WITH_CREDENTIALS } = import.meta.env
 const axiosInstance = axios.create({
   timeout: REQUEST_TIMEOUT,
   baseURL: VITE_API_URL,
-  withCredentials: VITE_WITH_CREDENTIALS === 'true',
+  // refresh token 通过 HttpOnly Cookie 携带，需要凭证
+  withCredentials: VITE_WITH_CREDENTIALS !== 'false',
   validateStatus: (status) => status >= 200 && status < 300,
   transformResponse: [
     (data, headers) => {
@@ -65,7 +66,7 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (request: InternalAxiosRequestConfig) => {
     const { accessToken } = useUserStore()
-    if (accessToken) request.headers.set('Authorization', accessToken)
+    if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`)
 
     if (request.data && !(request.data instanceof FormData) && !request.headers['Content-Type']) {
       request.headers.set('Content-Type', 'application/json')
@@ -85,11 +86,30 @@ axiosInstance.interceptors.response.use(
   (response: AxiosResponse<BaseResponse>) => {
     const { code, msg } = response.data
     if (code === ApiStatus.success) return response
-    if (code === ApiStatus.unauthorized) handleUnauthorizedError(msg)
+    if (code === ApiStatus.unauthorized) {
+      throw createHttpError(msg || $t('httpMsg.unauthorized'), ApiStatus.unauthorized)
+    }
     throw createHttpError(msg || $t('httpMsg.requestFailed'), code)
   },
-  (error) => {
-    if (error.response?.status === ApiStatus.unauthorized) handleUnauthorizedError()
+  async (error) => {
+    const config = error.config as ExtendedAxiosRequestConfig | undefined
+    const status = error.response?.status
+
+    // 401：先尝试用 refresh cookie 换新令牌，并重放原请求（最多一次）
+    if (status === ApiStatus.unauthorized && config && !config.skipAuthRefresh) {
+      if (!config._retried) {
+        config._retried = true
+        try {
+          await refreshAccessToken()
+          return await axiosInstance.request(config)
+        } catch (refreshError) {
+          handleUnauthorizedError(error.response?.data?.msg)
+          return Promise.reject(refreshError)
+        }
+      }
+      handleUnauthorizedError(error.response?.data?.msg)
+    }
+
     return Promise.reject(handleError(error))
   }
 )
@@ -99,28 +119,11 @@ function createHttpError(message: string, code: number) {
   return new HttpError(message, code)
 }
 
-/** 处理401错误（带防抖） */
-function handleUnauthorizedError(message?: string): never {
+/** 处理 401：清理本地会话并跳转登录页 */
+function handleUnauthorizedError(message?: string): void {
   const error = createHttpError(message || $t('httpMsg.unauthorized'), ApiStatus.unauthorized)
-
-  if (!isUnauthorizedErrorShown) {
-    isUnauthorizedErrorShown = true
-    logOut()
-
-    unauthorizedTimer = setTimeout(resetUnauthorizedError, UNAUTHORIZED_DEBOUNCE_TIME)
-
-    showError(error, true)
-    throw error
-  }
-
-  throw error
-}
-
-/** 重置401防抖状态 */
-function resetUnauthorizedError() {
-  isUnauthorizedErrorShown = false
-  if (unauthorizedTimer) clearTimeout(unauthorizedTimer)
-  unauthorizedTimer = null
+  console.warn('[HTTP] 401 未授权，清理本地会话', error.toLogData())
+  logOut()
 }
 
 /** 退出登录函数 */

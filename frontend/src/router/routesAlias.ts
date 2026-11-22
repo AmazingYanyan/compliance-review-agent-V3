@@ -4,5 +4,7 @@
  */
 export enum RoutesAlias {
   Layout = '/index/index', // 布局容器
-  Login = '/auth/login' // 登录页
+  Login = '/auth/login', // 登录页
+  Register = '/auth/register', // 注册页
+  Dashboard = '/dashboard' // 工作台（受保护）
 }

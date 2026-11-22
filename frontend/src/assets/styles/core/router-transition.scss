@@ -102,3 +102,26 @@ $fade-easing: transition-config('fade-easing');
 .slide-bottom {
   @include slide-transition('bottom');
 }
+
+// 尊重系统的「减弱动效」设置：关闭路由过渡
+@media (prefers-reduced-motion: reduce) {
+  .fade,
+  .slide-left,
+  .slide-right,
+  .slide-top,
+  .slide-bottom {
+    &-enter-active,
+    &-leave-active {
+      transition: none !important;
+      animation: none !important;
+    }
+
+    &-enter-from,
+    &-leave-to,
+    &-enter-to,
+    &-leave-from {
+      opacity: 1;
+      transform: none !important;
+    }
+  }
+}
