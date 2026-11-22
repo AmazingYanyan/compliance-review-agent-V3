@@ -12,7 +12,11 @@ RUN apt-get update \
 
 COPY pyproject.toml ./
 COPY app ./app
-RUN pip install --upgrade pip && pip install .
+
+# 可通过构建参数切换 PyPI 镜像（例如国内网络：https://pypi.tuna.tsinghua.edu.cn/simple）
+ARG PIP_INDEX_URL=https://pypi.org/simple
+RUN pip install --upgrade pip --index-url ${PIP_INDEX_URL} \
+    && pip install . --index-url ${PIP_INDEX_URL}
 
 COPY alembic.ini ./
 COPY alembic ./alembic

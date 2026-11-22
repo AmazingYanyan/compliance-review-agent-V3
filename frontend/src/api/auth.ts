@@ -24,7 +24,9 @@ export function fetchRegister(params: Api.Auth.RegisterParams) {
     url: '/api/v1/auth/register',
     params,
     // 字段级 / 业务级错误由页面自行展示，避免全局提示与页面提示重复
-    showErrorMessage: false
+    showErrorMessage: false,
+    // 注册失败（如邮箱已存在）属于业务错误，直接进入错误流程，不触发会话刷新
+    skipAuthRefresh: true
   })
 }
 
@@ -37,7 +39,10 @@ export function fetchLogin(params: Api.Auth.LoginParams) {
   return request.post<Api.Auth.LoginResponse>({
     url: '/api/v1/auth/login',
     params,
-    showErrorMessage: false
+    showErrorMessage: false,
+    // 登录失败（凭据错误）直接进入错误流程：
+    // 不触发 refresh（避免把「邮箱或密码错误」覆盖成通用报错），也不清空当前会话
+    skipAuthRefresh: true
   })
 }
 

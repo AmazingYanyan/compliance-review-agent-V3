@@ -12,6 +12,7 @@
 - 本轮范围：注册、登录、退出、极简 `/dashboard`，前后端已打通真实 API + PostgreSQL 18。
 - 已验证：浏览器全链路（注册 → 登录 → `/dashboard` → 刷新保持登录 → 退出 → 再次访问 `/dashboard` 回登录页）；
   错误密码、重复邮箱、两次密码不一致、未登录直接访问受保护页；桌面 1440 与窄屏 390 布局。
+- 已验证：提交中按钮 loading + disabled、键盘 Tab 焦点环、错误密码提示为「邮箱或密码错误」。
 - 已验证：`backend` 13 个 pytest 用例通过；`pnpm build`（含 `vue-tsc --noEmit`）0 error。
 - 已验证：Procrastinate 欢迎任务在注册事务内投递，worker 独立消费成功；投递失败时注册整体回滚。
 - 动态菜单 / 权限接口已从认证链路解耦；本轮只保留静态受保护路由。

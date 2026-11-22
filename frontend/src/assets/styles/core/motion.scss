@@ -12,11 +12,18 @@
   &:active {
     transform: scale(var(--motion-scale-press, 0.96));
   }
+}
 
-  &:focus-visible {
-    outline: 2px solid var(--el-color-primary);
-    outline-offset: 2px;
-  }
+// 键盘焦点：主按钮默认是填充色，Element Plus 自带的浅色焦点环对比度不足，
+// 这里用更深的主色 + 外偏移画在页面背景上，保证键盘导航时焦点清晰可见
+.el-button.motion-press:focus-visible {
+  outline: 2px solid var(--el-color-primary-dark-2);
+  outline-offset: 2px;
+}
+
+// 输入框焦点：把 Element Plus 默认的 1px 内描边加粗为 2px
+.el-input__wrapper:has(.el-input__inner:focus-visible) {
+  box-shadow: 0 0 0 2px var(--el-color-primary-dark-2) inset;
 }
 
 // 轻量回弹：操作成功后触发一次

@@ -21,9 +21,7 @@ services:
 
   # 迁移 + Procrastinate 队列表初始化，只在启动时跑一次
   migrate:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: v3-backend
     container_name: compliance-migrate
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-compliance}:${POSTGRES_PASSWORD:-compliance}@db:5432/${POSTGRES_DB:-compliance}
@@ -40,6 +38,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://pypi.org/simple}
     container_name: compliance-backend
     restart: unless-stopped
     environment:
@@ -65,9 +65,7 @@ services:
         condition: service_completed_successfully
 
   worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: v3-backend
     container_name: compliance-worker
     restart: unless-stopped
     environment:

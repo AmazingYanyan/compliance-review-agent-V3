@@ -38,6 +38,7 @@ import { router } from '@/router'
 import { useSettingStore } from './setting'
 import { useWorktabStore } from './worktab'
 import { AppRouteRecord } from '@/types/router'
+import { RoutesAlias } from '@/router/routesAlias'
 import { setPageTitle } from '@/utils/router'
 import { resetRouterState } from '@/router/guards/beforeEach'
 import { useMenuStore } from './menu'
@@ -168,8 +169,10 @@ export const useUserStore = defineStore(
       clearSession()
 
       // 跳转到登录页，携带当前路由作为 redirect 参数
+      // 已经在登录页时不带 redirect，避免出现嵌套的查询参数
       const currentRoute = router.currentRoute.value
-      const redirect = currentRoute.path !== '/login' ? currentRoute.fullPath : undefined
+      const redirect =
+        currentRoute.path !== RoutesAlias.Login ? currentRoute.fullPath : undefined
       router.push({
         name: 'Login',
         query: redirect ? { redirect } : undefined
