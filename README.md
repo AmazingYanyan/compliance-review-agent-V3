@@ -1,6 +1,6 @@
 # 合规审查智能体 V3
 
-合规审查智能体的工程起点。本轮交付范围：**登录、注册，以及接入 ADP 原生主布局的工作台**。
+合规审查智能体的工程起点。当前交付范围：**登录、注册、接入 ADP 原生主布局的工作台，以及「我的任务」前端原型**。
 
 - 前端：`frontend/` — 基于上游 [art-design-pro](https://github.com/Daymychen/art-design-pro)（Vue 3 + TypeScript + Vite + Element Plus + Tailwind CSS）
 - 后端：`backend/` — FastAPI + Pydantic v2 + SQLAlchemy 2.x async + Alembic + PostgreSQL 18 + Argon2
@@ -8,6 +8,44 @@
 
 > 上游源码以原始提交 `f3aaf58eec1a0e988f162352c33862327a484f95` 导入，许可证与版权声明保留在 `frontend/LICENSE`。
 > 详见 [DECISIONS.md](DECISIONS.md) 与 [HANDOFF.md](HANDOFF.md)。已读源码索引见 [HANDOFF_CODE.md](HANDOFF_CODE.md)。
+
+## 当前功能
+
+### 认证（真实后端）
+
+| 能力 | 说明 |
+| ---- | ---- |
+| 注册 | 显示名 / 邮箱 / 密码；后端做去重、强度与邮箱规范化；可用 `REGISTRATION_ENABLED` 关闭 |
+| 登录 | 邮箱 + 密码；access token 仅存前端内存，refresh token 走 HttpOnly Cookie |
+| 会话恢复 | 刷新页面后用 refresh cookie 换新 access token |
+| 退出 | 撤销 refresh 会话并清 Cookie（幂等） |
+| 路由保护 | 除登录 / 注册 / 错误页外均需登录 |
+
+### 「我的任务」（前端模拟数据原型）
+
+本轮任务数据全部来自前端模拟模块 `frontend/src/mock/tasks.ts`（sessionStorage 持久化），**尚未接入后端接口**。
+
+| 能力 | 说明 |
+| ---- | ---- |
+| 列表 | 企业名称、客户类型、任务状态、创建时间与主操作；企业名称按子串匹配（忽略首尾空格） |
+| 筛选 | 任务状态：全部 / 待核对 / 核对中 / 已完成；可与关键词组合，支持重置 |
+| 状态口径 | 待核对（创建即入）→ 核对中（首次保存人工核对决定）→ 已完成（完成操作）；本轮仅新建「待核对」 |
+| 新建任务 | 企业名称与客户类型必填；新任务独立 ID、实际创建时间、置顶列表 |
+| 核对工作台 | 按任务 ID 加载，展示企业名称、客户类型、状态与材料；材料在同一内容区切换 |
+| 返回 | 从工作台返回列表时，搜索词与状态筛选一并恢复 |
+
+> 任务数据只保存在当前浏览器标签页：刷新保留，换标签页或换浏览器回到种子样例。
+
+### 路由
+
+| 路径 | 路由名 | 说明 |
+| ---- | ---- | ---- |
+| `/auth/login` | `Login` | 登录 |
+| `/auth/register` | `Register` | 注册 |
+| `/dashboard` | `Dashboard` / `DashboardWorkbench` | 工作台（AppLayout 内） |
+| `/tasks` | `TaskList` | 我的任务列表（AppLayout 内） |
+| `/tasks/:taskId/workbench` | `TaskWorkbench` | 核对工作台（AppLayout 内，侧栏保持高亮「我的任务」） |
+| `/403` `/500` `/:pathMatch(.*)*` | — | 错误页 |
 
 ## 快速开始
 
@@ -120,6 +158,9 @@ cd backend
 ```
 .
 ├── frontend/          # ADP 前端（上游基线 + 本轮改造）
+│   └── src/
+│       ├── mock/tasks.ts       # 任务模拟数据模块（sessionStorage 持久化）
+│       └── views/tasks/        # 我的任务：list/ + workbench/
 ├── backend/           # FastAPI 后端
 │   ├── app/api/v1/    # 路由：auth / user
 │   ├── app/services/  # 认证逻辑、注册事务

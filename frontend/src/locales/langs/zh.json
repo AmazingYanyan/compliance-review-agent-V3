@@ -252,6 +252,15 @@
     "dashboard": {
       "title": "工作台"
     },
+    "tasks": {
+      "title": "我的任务",
+      "list": {
+        "title": "任务列表"
+      },
+      "workbench": {
+        "title": "工作台"
+      }
+    },
     "result": {
       "title": "结果页面",
       "success": "成功页",

@@ -116,3 +116,71 @@
 - **记录**：ADP `src/api/auth.ts` 的 `fetchLogin` 以 `params` 传参（参数走 query string），而非 `data`（请求体）。
 - **影响**：对接 FastAPI 时，后端若用 Pydantic body model 接收，会收不到字段或返回 422。
 - **待决**：联调阶段需二选一——改前端为 `data`，或后端用 query 参数接收。决策前不要凭常识假设其中一种。
+
+---
+
+## CP7 · 我的任务原型
+
+### D19 · 任务数据先用前端模拟模块，不接后端
+- **选择**：新增 `frontend/src/mock/tasks.ts` 作为唯一数据源，列表页与工作台都从它取数；
+  本轮不定义任务相关的后端接口与数据库模型。
+- **原因**：本轮目标是「用前端模拟数据跑通交互」并做浏览器验收；提前建表会引入尚未定稿的字段
+  （材料原文、摘录、出处、核对结论、权限归属等），返工成本高于收益。
+- **代价**：任务不能跨浏览器、跨设备共享；下一阶段接真实接口时需替换本模块的读写实现，
+  页面调用方式保持不变（`listTasks` / `createTask` / `getTaskById`）。
+
+### D20 · 任务数据与筛选条件一起放 sessionStorage
+- **选择**：sessionStorage 单键 `compliance-task-mock` 存 `{ tasks, query }`；同标签页刷新保留，
+  新标签页（新会话）回到种子样例。
+- **原因**：需求明确「同一浏览器标签页创建任务后，刷新列表或工作台仍能看到对应任务」，
+  且「搜索词与状态筛选与任务数据一起存入 sessionStorage，确保刷新工作台后返回仍能恢复」。
+  把筛选条件与数据放同一个键，可以一次读写保证两者一致。
+- **代价**：sessionStorage 有容量上限（约 5MB），任务量增大后需要迁移到 IndexedDB 或直接接后端；
+  筛选条件存本地意味着换浏览器后筛选条件不跟随（这是原需求的直接结果，不是缺陷）。
+
+### D21 · 任务状态口径固定为三态，新建一律「待核对」
+- **选择**：`TaskStatus = 'pending' | 'in_review' | 'completed'`；
+  `createTask` 固定写入 `pending`；`in_review`（首次成功保存人工核对决定后进入）与
+  `completed`（完成操作成功后进入）本轮只由种子样例提供。
+- **原因**：状态口径是业务约定，需在前后端之间保持一致；本轮不做人工决定与完成操作，
+  提前实现这两个流转会引入没有真实触发路径的分支。
+- **代价**：本轮无法通过界面产生「核对中 / 已完成」，这两种状态只能从种子数据进入；
+  下一阶段实现人工决定保存时，需要在同一处接入 `pending → in_review` 的流转。
+
+### D22 · 材料切换用 ElTabs 实现「单内容区替换显示」
+- **选择**：工作台材料区用 `ElTabs type="card"`，各材料面板在同一处渲染，切换时替换内容区，
+  当前材料以选中态呈现。
+- **原因**：需求要求「沿用单展开区替换显示的交互，点击材料入口时只切换同一块内容区，
+  当前材料有清楚的选中状态」。Element Plus 的 `ElTabs` 原生满足，且与上游
+  `src/views/examples/tables/index.vue` 中 `ElCollapse` 的同类用法一致（同一区域替换而非堆叠）。
+- **代价**：`ElTabs` 在窄屏下横向标签较多时需要滚动；当前每任务材料数为 2–3，暂不构成问题。
+
+### D23 · 列表页复用 ADP 的 ArtSearchBar + ArtTable + ArtTableHeader，不自建表格
+- **选择**：列表页直接用上游的 `ArtSearchBar`（搜索）、`ArtTable`（表格）、`ArtTableHeader`（工具栏），
+  弹窗用 `ElDialog` + `ElForm`；列定义走 `useTableColumns` + `useSlot` 插槽。
+- **原因**：用户明确要求「复用 ADP 原有页面、组件、按钮、控件等等，摘出来改，而不是自己从零写」；
+  上游 `src/views/system/user/**` 已是「搜索栏 + 表格 + 弹窗」的完整范式。
+- **代价**：上游 `ArtSearchBar` 的 `reset` 语义是「恢复到 setup 时的初始快照」而非「清空」，
+  所以重置语义由列表页的 `handleReset` 实现，不依赖组件内部快照（见 HANDOFF_CODE 第 11 节注意事项）。
+
+### D24 · 表格插槽里的行数据用收口函数补类型
+- **选择**：不直接写 `TASK_STATUS_TEXT[row.status]`，而是定义
+  `getStatusText(row)` / `getStatusTagType(row)` / `getCustomerTypeText(row)` / `getActionText(row)`
+  四个函数，把 `any` 收口回 `ReviewTask`。
+- **原因**：`ArtTable` 的插槽作用域没有声明行类型，`row` 是 `any`；直接索引 `Record` 会触发
+  TypeScript 的 TS7053（隐式 any 索引），`vue-tsc --noEmit` 不通过。
+- **代价**：多一层薄封装；若将来 `ArtTable` 补上行类型泛型，这几个函数可以删掉。
+
+### D25 · 工作台不引入 KeepAlive，任务数据由 route.params 驱动
+- **选择**：工作台路由不加 `meta.keepAlive`；任务通过 `computed(() => getTaskById(route.params.taskId))` 取；
+  同时用 `watch(task)` 同步顶部标签页标题。
+- **原因**：需求明确「本轮无需引入 KeepAlive」「工作台按当前路由中的 taskId 获取数据，
+  直接访问、刷新和切换任务时均显示对应任务」。不缓存可天然避免切换任务后残留上一条任务信息。
+- **代价**：从工作台返回列表再进入工作台会重新取数（本地模拟，无性能问题）。
+
+### D26 · 工作台通过 meta.activePath 保持侧栏高亮「我的任务」
+- **选择**：工作台子路由设 `meta.activePath = '/tasks'`；侧栏菜单只保留「我的任务」一项，
+  不为工作台单独建菜单项。
+- **原因**：需求要求「进入工作台时侧栏继续高亮『我的任务』（工作台不新增侧栏菜单项）」。
+  `ArtSidebarMenu` 用 `route.meta.activePath || route.path` 计算选中项，`activePath` 正是为此设计的。
+- **代价**：多一个非标准 meta 字段，需要在 `staticRoutes.ts` 注释中说明（已写）。

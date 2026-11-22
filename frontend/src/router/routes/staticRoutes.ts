@@ -13,6 +13,9 @@ import { AppRouteRecord } from '@/types/router'
  */
 export const DASHBOARD_PATH = '/dashboard'
 
+/** 「我的任务」路由前缀，同时作为侧栏菜单路径与工作台页的 activePath */
+export const TASK_PATH = '/tasks'
+
 export const staticRoutes: AppRouteRecordRaw[] = [
   {
     path: '/auth/login',
@@ -46,6 +49,33 @@ export const staticRoutes: AppRouteRecordRaw[] = [
     ]
   },
   {
+    path: TASK_PATH,
+    name: 'Tasks',
+    component: () => import('@views/index/index.vue'),
+    meta: { title: 'menus.tasks.title', icon: 'ri:file-list-3-line' },
+    children: [
+      {
+        path: '',
+        name: 'TaskList',
+        component: () => import('@views/tasks/list/index.vue'),
+        meta: {
+          title: 'menus.tasks.list.title',
+          icon: 'ri:file-list-3-line'
+        }
+      },
+      {
+        path: ':taskId/workbench',
+        name: 'TaskWorkbench',
+        component: () => import('@views/tasks/workbench/index.vue'),
+        meta: {
+          title: 'menus.tasks.workbench.title',
+          // 工作台不新增侧栏菜单项，进入后侧栏仍高亮「我的任务」
+          activePath: TASK_PATH
+        }
+      }
+    ]
+  },
+  {
     path: '/403',
     name: 'Exception403',
     component: () => import('@views/exception/403/index.vue'),
@@ -69,7 +99,8 @@ export const staticRoutes: AppRouteRecordRaw[] = [
  * 本地静态菜单
  *
  * 侧栏菜单直接由本地路由提供，不接上游动态菜单 API。
- * 当前只保留「工作台」一个入口，后续「我的任务」页面开工时在此追加。
+ * 顺序决定侧栏排列与首页路径（`getFirstMenuPath` 取第一个可导航项）；
+ * 「工作台」排在首位，保持首页路径为 `/dashboard`。
  *
  * `component` 字段是侧栏过滤菜单项的必需条件（见 `SidebarSubmenu.filterRoutes`）。
  */
@@ -81,6 +112,15 @@ export const staticMenuList: AppRouteRecord[] = [
     meta: {
       title: 'menus.dashboard.title',
       icon: 'ri:pie-chart-line'
+    }
+  },
+  {
+    path: TASK_PATH,
+    name: 'TaskList',
+    component: '/tasks/list/index',
+    meta: {
+      title: 'menus.tasks.title',
+      icon: 'ri:file-list-3-line'
     }
   }
 ]

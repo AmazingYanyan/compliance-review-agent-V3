@@ -252,6 +252,15 @@
     "dashboard": {
       "title": "Workbench"
     },
+    "tasks": {
+      "title": "My Tasks",
+      "list": {
+        "title": "Task List"
+      },
+      "workbench": {
+        "title": "Review Workbench"
+      }
+    },
     "result": {
       "title": "Result Page",
       "success": "Success",
