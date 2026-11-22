@@ -21,6 +21,8 @@ docker compose up -d --build  # db(5433) + migrate + backend(8000) + worker
 
 启动顺序由 Compose 编排保证：**db 健康检查通过 → migrate（Alembic 迁移 + Procrastinate 队列表初始化）成功退出 → backend / worker 启动**。
 
+> 构建镜像较慢时可用国内镜像源：`PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple docker compose up -d --build`。
+
 访问地址：
 
 | 服务     | 地址                                        |
