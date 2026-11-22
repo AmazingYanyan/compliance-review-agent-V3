@@ -1,5 +1,9 @@
 # HANDOFF
 
+> 工作规则见 `AGENTS.md`，开工前先读。文件读取优先级：HANDOFF.md → HANDOFF_CODE.md → docs/ADP_MAP.md → 源码。
+
+
+
 ## 上游
 
 - 仓库：https://github.com/Daymychen/art-design-pro
