@@ -16,25 +16,44 @@
 - 工作台：展示企业名称、客户类型、任务状态与「返回我的任务」入口；材料用 `ElTabs` 单内容区替换显示，
   公司章程为核对占位，其他材料提示「本轮暂未开放核对」；未知任务 ID 显示提示与返回入口。
 - i18n：`menus.tasks.*`（zh / en）已补。
-- 状态：代码与类型检查已通过（`vue-tsc --noEmit` 0 error，`pnpm build` 通过）；**浏览器逐项验收尚未完成**（见「本轮验收进度」）。
+- 状态：代码与类型检查已通过（`vue-tsc --noEmit` 0 error，`pnpm build` 通过）；浏览器逐项验收已完成（见「本轮验收进度」）。
 
-## 本轮验收进度（mark 点）
+## 本轮验收进度（已完成）
 
-已实测：
+Chrome 实跑（1440×900 与 390×844），全部通过，详见 `TEST_TODO.md` 的「我的任务（CP7）」章节：
 
-- 注册 → 登录 → 进入工作台，路由与布局正常（登录链路沿用 CP6 的真实后端）。
+- 登录 → 侧栏「我的任务」→ 列表（4 条种子任务）→ 新建任务（校验 / 取消 / 防连击 / 置顶 / 刷新仍在）→ 工作台
+  （章程缺失态、多材料同区切换、已完成只读态、未知 ID 提示）→ 返回列表恢复筛选 → 刷新工作台后筛选仍在。
+- 未登录访问 `/tasks`、`/tasks/:taskId/workbench` 均被守卫引导到 `/auth/login?redirect=...`。
+- 搜索（子串 + 忽略首尾空格）、四状态筛选、组合、重置、两种空态、筛选隐藏新任务时的创建反馈，均符合预期。
+- 控制台无新增错误，网络无意外失败；`pnpm build` 通过（`✓ built in 10.38s`）。
+- 截图 12 张存于 `docs/screenshots/`（`cp7-*.png`）。
 
-待完成（下一轮继续，不要重复已完成项）：
+**验收中发现并已修复的缺陷**：新建任务弹窗把 `submitting` 锁放在 `await validate()` 之后，
+连击两次「创建」会创建两条任务；已改为「先上锁再校验」（`frontend/src/views/tasks/list/modules/task-create-dialog.vue` 的 `handleSubmit`）。
 
-1. 侧栏出现「我的任务」，点击进入列表。
-2. 新建任务 → 列表顶部立即出现；刷新列表后仍在。
-3. 「开始」进入工作台：任务仍为待核对、显示「尚未上传公司章程」提示；刷新工作台后返回列表，路由与数据一致。
-4. 样例任务「继续核对」：同一内容区切换两份材料；已完成任务「查看」：只读态。
-5. 搜索与筛选：企业名称子串、四个状态、组合查询、重置、空结果提示；筛选隐藏新任务时的创建反馈。
-6. 未知任务 ID 的返回路径。
-7. 1440px 与 390px 布局检查（侧栏、列表、创建表单、工作台、返回入口；窄屏无横向溢出）。
-8. 关键路径控制台无新增错误、网络请求无意外失败。
-9. 截图存入 `docs/screenshots/`（桌面/窄屏 × 列表/创建表单/章程缺失/多材料/未知 ID/只读态）。
+### 浏览器驱动方式（重要）
+
+本机 **chrome-devtools MCP 的数值参数失效**（`root.pageId: must be number` —— Trae 桥接层把数字序列化成字符串，
+`evaluate_script` / `take_screenshot` / `resize_page` 等全部不可用，`list_pages` 除外）。
+本轮改为 **原生 CDP 直连**：
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --remote-debugging-port=9333 --user-data-dir=/tmp/cp7/profile2 \
+  --window-size=1440,900 "http://localhost:3006/#/auth/login"
+# 再用 WebSocket 连 http://127.0.0.1:9333/json/list 里的 page target
+```
+
+要点：
+
+- `Emulation.setDeviceMetricsOverride` **只在当前 CDP 会话内生效**，会话断开即还原 → 视口切换与截图必须在**同一会话**内完成。
+- 合成点击要派发 `pointerdown/mousedown/pointerup/mouseup/click` 全套（Element Plus 依赖 pointer 事件）。
+- 用 `Runtime.evaluate` + `getComputedStyle(el).display !== 'none'` 判断 Element Plus 弹层是否可见
+  （`offsetParent` 对 `position: fixed` 元素恒为 `null`，不可用）。
+- 按文本点击时要取**最内层**匹配元素（否则会点到外层包装 div，事件不会落到按钮上）。
+- 未登录场景用 `Target.createBrowserContext` + `Target.createTarget` 造独立上下文，不污染当前登录态。
+
 
 ## 本阶段计划读取的文件清单（CP7 · 已完成）
 

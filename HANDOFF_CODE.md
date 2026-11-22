@@ -265,6 +265,9 @@
 - `ElDialog`（`width="480px"`, `align-center`, `close-on-click-modal=false`）+ `ElForm`。
 - 字段：`companyName`（`required` + `whitespace: true`，提交时 `trim()`）、`customerType`（`required`）。
 - 防重复提交：`submitting` 标志 + 提交按钮 `loading`；`handleClosed` 清理表单并 `clearValidate`。
+- **本轮验收修复**：`handleSubmit` 原先把 `submitting.value = true` 放在 `await formRef.value.validate()` **之后**，
+  连击两次「创建」时两次调用都能越过 `submitting` 判断 → 创建了两条任务；现已改为**先上锁、再校验**
+  （`submitting.value = true` 提到 `await` 之前，`finally` 复位）。改动位置：`handleSubmit`（第 79–96 行）。
 - 通过 `v-model:visible` 控制显隐，`@submit` 抛 `{ companyName, customerType }`。
 
 ### `frontend/src/views/tasks/workbench/index.vue`（**本轮新增**，组件名 `TaskWorkbench`）

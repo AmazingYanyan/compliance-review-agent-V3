@@ -184,3 +184,19 @@
 - **原因**：需求要求「进入工作台时侧栏继续高亮『我的任务』（工作台不新增侧栏菜单项）」。
   `ArtSidebarMenu` 用 `route.meta.activePath || route.path` 计算选中项，`activePath` 正是为此设计的。
 - **代价**：多一个非标准 meta 字段，需要在 `staticRoutes.ts` 注释中说明（已写）。
+
+### D27 · 表单提交锁前置：先上锁再校验
+- **选择**：`task-create-dialog.vue` 的 `handleSubmit` 里把 `submitting.value = true` 提到
+  `await formRef.value.validate()` **之前**，校验失败时在 `finally` 复位。
+- **原因**：浏览器验收时发现，连点两次「创建」会创建两条任务——因为原实现先 `await` 校验，
+  两次调用都能越过 `submitting` 判断，等校验返回后依次创建。锁必须覆盖整个异步区间。
+- **代价**：校验期间按钮进入 `loading` 态（期望行为）；表单校验失败时也会短暂闪一下 loading。
+
+### D28 · 浏览器验收改用原生 CDP 直连，绕开 chrome-devtools MCP
+- **选择**：不再依赖 chrome-devtools MCP 的 `evaluate_script` / `take_screenshot` / `resize_page`，
+  改为用 Node + WebSocket 直连 `http://127.0.0.1:9333/json/list` 的 page target，
+  自己发 `Page.navigate` / `Runtime.evaluate` / `Emulation.setDeviceMetricsOverride` / `Page.captureScreenshot`。
+- **原因**：本机 Trae 的 MCP 桥接层把数值参数序列化成字符串，`pageId` 等参数全部触发
+  `must be number` 校验失败，只有无参数的 `list_pages` 可用；继续在该 MCP 上排查会持续消耗时间。
+- **代价**：需自备约 200 行 CDP 脚本（放在 `/tmp/cp7/`，不入库）；好处是视口模拟与截图可在同一会话内完成，
+  且能用 `Target.createBrowserContext` 造未登录场景而不污染当前会话。

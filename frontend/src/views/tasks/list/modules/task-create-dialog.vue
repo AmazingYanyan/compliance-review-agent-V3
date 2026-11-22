@@ -79,11 +79,12 @@
   const handleSubmit = async () => {
     if (!formRef.value || submitting.value) return
 
-    const valid = await formRef.value.validate().catch(() => false)
-    if (!valid) return
-
+    // 先上锁再校验：避免连击时两次调用都越过 submitting 判断而重复创建
     submitting.value = true
     try {
+      const valid = await formRef.value.validate().catch(() => false)
+      if (!valid) return
+
       emit('submit', {
         companyName: formData.companyName.trim(),
         customerType: formData.customerType as CustomerType
