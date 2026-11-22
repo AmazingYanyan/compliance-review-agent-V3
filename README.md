@@ -42,6 +42,7 @@ docker compose --profile frontend up -d frontend   # 容器内 Vite 代理指向
 # 1) 数据库（PostgreSQL 18，宿主端口 5433）
 docker run -d --name compliance-db -p 5433:5432 \
   -e POSTGRES_USER=compliance -e POSTGRES_PASSWORD=compliance -e POSTGRES_DB=compliance \
+  -v compliance-pgdata:/var/lib/postgresql \
   postgres:18-alpine
 
 # 2) 后端（Python 3.12，uv / venv）
