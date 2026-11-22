@@ -1,0 +1,31 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# --- Env / secrets ---
+.env
+.env.local
+!.env.example
+
+# --- Node (frontend has its own .gitignore, this is a safety net) ---
+node_modules/
+dist/
+.vite/
+
+# --- Docker ---
+.docker-data/
+
+# --- OS / Editor ---
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# --- Logs / runtime ---
+*.log

@@ -1,0 +1,106 @@
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: compliance-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-compliance}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-compliance}
+      POSTGRES_DB: ${POSTGRES_DB:-compliance}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-compliance} -d ${POSTGRES_DB:-compliance}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  # 迁移 + Procrastinate 队列表初始化，只在启动时跑一次
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: compliance-migrate
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-compliance}:${POSTGRES_PASSWORD:-compliance}@db:5432/${POSTGRES_DB:-compliance}
+      PROCRASTINATE_DATABASE_URL: postgresql://${POSTGRES_USER:-compliance}:${POSTGRES_PASSWORD:-compliance}@db:5432/${POSTGRES_DB:-compliance}
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret}
+    command: >
+      sh -c "alembic upgrade head && python -m app.queue.setup"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: compliance-backend
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DEBUG: ${DEBUG:-true}
+      BACKEND_HOST: 0.0.0.0
+      BACKEND_PORT: 8000
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-compliance}:${POSTGRES_PASSWORD:-compliance}@db:5432/${POSTGRES_DB:-compliance}
+      PROCRASTINATE_DATABASE_URL: postgresql://${POSTGRES_USER:-compliance}:${POSTGRES_PASSWORD:-compliance}@db:5432/${POSTGRES_DB:-compliance}
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-15}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3006}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: compliance-worker
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-compliance}:${POSTGRES_PASSWORD:-compliance}@db:5432/${POSTGRES_DB:-compliance}
+      PROCRASTINATE_DATABASE_URL: postgresql://${POSTGRES_USER:-compliance}:${POSTGRES_PASSWORD:-compliance}@db:5432/${POSTGRES_DB:-compliance}
+      PROCRASTINATE_CONCURRENCY: ${PROCRASTINATE_CONCURRENCY:-2}
+      JWT_SECRET: ${JWT_SECRET:-change-me-to-a-long-random-secret}
+    command: ["python", "-m", "app.queue.worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  # 可选的前端开发服务：docker compose --profile frontend up
+  frontend:
+    profiles: ["frontend"]
+    image: node:24-alpine
+    container_name: compliance-frontend
+    working_dir: /app
+    environment:
+      VITE_API_PROXY_URL: http://backend:8000
+      VITE_PORT: 3006
+    ports:
+      - "${FRONTEND_PORT:-3006}:3006"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: >
+      sh -c "corepack enable && pnpm install --frozen-lockfile && pnpm dev --host 0.0.0.0"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  frontend_node_modules:
