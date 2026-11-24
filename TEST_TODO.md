@@ -107,14 +107,20 @@
 
 ### 干净克隆验收
 
-验收目录 `/tmp/v3-clean-verify`（`git clone` 自本仓库，无 `node_modules` 复用）：
+验收目录 `/tmp/v3-clean-verify`（`git clone` 自本仓库，克隆自提交 `d32ba11`；无 `node_modules` 复用，依赖真实安装）：
 
 | 命令 | 退出码 | 关键输出 |
 | --- | --- | --- |
-| `pnpm install --frozen-lockfile` | 见下 | lockfile 与 `package.json` 一致，依赖装齐 |
-| `pnpm build` | 见下 | `vue-tsc --noEmit` 0 error → `vite build` 成功产出 `dist/` |
+| `git clone <repo> /tmp/v3-clean-verify` | 0 | `frontend/src/types/import/auto-imports.d.ts` 已随克隆到位（21137 B）；`frontend/node_modules` 不存在 |
+| `pnpm install --frozen-lockfile` | **0** | `Done in 3.6s using pnpm v10.32.1`（warning：`prepare > husky` 提示 `.git can't be found`，因为 husky 在 `frontend/` 子目录找 `.git`，无害；另有 pnpm 10 默认拦截 esbuild 等 postinstall 的提示，不影响构建） |
+| `pnpm build` | **0** | `> vue-tsc --noEmit && vite build` → 类型检查 0 error → `✓ built in 8.57s`，产出 `dist/`（含 `assets/tasks-sSf0f12g.js` 等 91 个 chunk、`index.html`、`favicon.ico`） |
 
-> 详细输出见下方「干净克隆验收记录」。
+附加核对：
+
+- 构建后 `git status --short` **为空** —— 生成内容确定性成立，构建不会留下脏文件。
+- 干净克隆生成的 `auto-imports.d.ts` 与仓库入库版本 **逐字节一致**。
+- 修复前对照（同一 clone、`d32ba11` 之前的状态）：`vue-tsc --noEmit` 报 316 条错误，
+  全部为 `TS2304 Cannot find name 'computed' / 'ref' / 'watch' …` 及其连带 `TS7006`。
 
 ## 归档：阅读计划（AGENTS.md 规则）
 
