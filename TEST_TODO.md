@@ -85,9 +85,86 @@
 - [ ] 材料上传、OCR 处理中 / 缺材料 / 提取失败 / 覆盖不全等工作台内部状态的展示。
 - [ ] sessionStorage 容量上限触发后的降级策略。
 
-## 前端
+## 交接质量修复（CP7.5）
 
-- [ ] 键盘全流程走查（Tab 顺序、Enter 提交、Esc 关闭提示）。
+### 修复项
+
+- [x] **干净检出不构建**：`frontend/src/types/import/auto-imports.d.ts` 被 `.gitignore` 排除，
+      而 `build` 脚本先跑 `vue-tsc --noEmit` → 干净克隆第一步报 TS2304（`Cannot find name 'ref'/'computed'/'watch'` 等 316 条）直接失败。
+      方案：把该声明文件**纳入版本管理**并从 `.gitignore` 移除（`components.d.ts` 仍忽略）。
+      实测：`components.d.ts` 对 `vue-tsc --noEmit` **非必需**（删除后类型检查仍 0 error），
+      `auto-imports.d.ts` 是必需项，且其内容为 **preset 全量声明（304 项，含未使用的 `useDark`/`useTemplateRef` 等）**，
+      与业务代码无关 → 日常开发不会使其变旧，仅在升级 vue/@vueuse/core/pinia 时需重新生成。
+      理由与代价见 `DECISIONS.md` D29。
+- [x] **文档纠错**：`README.md` 本机开发章节的 `cp .env.example .env` → `cp ../.env.example .env`；
+      `HANDOFF_CODE.md` 测试库口径「ASGITransport + 内存库」→ 「ASGITransport + 独立 PostgreSQL 测试库 `compliance_test`」；
+      `HANDOFF_CODE.md` 菜单项路径 `/task/list/index` → `/tasks/list/index`。
+- [x] **全文检索同类错误**：脚本抽取 6 份文档中所有反引号路径并逐一核对存在性；
+      除上述三处外，其余不存在的路径全部是**已注明的上游文件**（`src/views/examples/**`、`src/views/system/**`，
+      本工程已删除，需 `git show 00c7e78:...` 查看），无新增错误。pytest 用例数核对为 15，与文档一致。
+- [x] **`HANDOFF.md` ≤ 50 行**：`wc -l` = 48。CP7 验收记录、CDP 排障细节、阅读计划清单已归档到本文件；
+      `DECISIONS.md` 补 D30（阅读清单规则与「同文件不重复读取」规则在长会话下的冲突与可持续做法）。
+
+### 干净克隆验收
+
+验收目录 `/tmp/v3-clean-verify`（`git clone` 自本仓库，无 `node_modules` 复用）：
+
+| 命令 | 退出码 | 关键输出 |
+| --- | --- | --- |
+| `pnpm install --frozen-lockfile` | 见下 | lockfile 与 `package.json` 一致，依赖装齐 |
+| `pnpm build` | 见下 | `vue-tsc --noEmit` 0 error → `vite build` 成功产出 `dist/` |
+
+> 详细输出见下方「干净克隆验收记录」。
+
+## 归档：阅读计划（AGENTS.md 规则）
+
+> 规则要求：每阶段开始前把计划读取的文件清单写入 `HANDOFF.md`（≤15 个），阶段结束后归档到 `TEST_TODO.md`。
+
+### CP7（我的任务原型）· 实际读取 15 个
+
+`frontend/src/components/core/tables/art-table/index.vue`、`frontend/src/components/core/forms/art-search-bar/index.vue`、
+`frontend/src/hooks/core/useTable.ts`、`frontend/src/components/core/forms/art-button-table/index.vue`、
+`frontend/src/components/core/forms/art-form/index.vue`、上游 `src/views/examples/tables/basic.vue`（`git show 00c7e78`）、
+上游 `src/views/system/user/{index.vue,modules/user-search.vue,modules/user-dialog.vue}`（`git show 00c7e78`）、
+`frontend/src/router/routes/staticRoutes.ts`、`frontend/src/router/guards/beforeEach.ts`、
+`frontend/src/store/modules/worktab.ts`、`frontend/src/utils/navigation/route.ts`、
+`frontend/src/types/router/index.ts`、`frontend/src/locales/langs/{zh.json,en.json}`、
+`frontend/src/hooks/core/useTableColumns.ts`、
+`frontend/src/components/core/layouts/art-menus/art-sidebar-menu/widget/SidebarSubmenu.vue`。
+
+### CP7.5（交接质量修复）· 实际读取 13 个
+
+`frontend/package.json`、`frontend/.gitignore`、`frontend/vite.config.ts`（AutoImport/Components 段）、
+`frontend/tsconfig.json`、`frontend/src/types/import/auto-imports.d.ts`、`frontend/src/types/import/components.d.ts`、
+根 `.gitignore`、`backend/tests/conftest.py`、`README.md`、`HANDOFF.md`、`HANDOFF_CODE.md`、`TEST_TODO.md`、`DECISIONS.md`。
+
+上游对照（`git show 00c7e78:frontend/package.json` 与 `frontend/.gitignore`）：与当前工程一致 → 干净检出构建失败**继承自上游 ADP**。
+
+## 归档：浏览器验收工具链（CP7）
+
+本机 **chrome-devtools MCP 的数值参数失效**：Trae 桥接层把数字序列化成字符串，
+`evaluate_script` / `take_screenshot` / `resize_page` / `click` / `navigate_page` 全部报 `root.pageId: must be number`
+（`list_pages` 因无参数可用）。本轮改用**原生 CDP 直连**：
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --remote-debugging-port=9333 --user-data-dir=/tmp/cp7/profile2 \
+  --window-size=1440,900 "http://localhost:3006/#/auth/login"
+# 用 WebSocket 连 http://127.0.0.1:9333/json/list 里的 page target
+```
+
+踩坑记录：
+
+- `Emulation.setDeviceMetricsOverride` **只在当前 CDP 会话内生效**，会话断开即还原 → 视口切换与截图必须在**同一会话**内完成。
+- 合成点击要派发 `pointerdown/mousedown/pointerup/mouseup/click` 全套（Element Plus 依赖 pointer 事件）。
+- 判断 Element Plus 弹层是否可见用 `getComputedStyle(el).display !== 'none'`；
+  `offsetParent` 对 `position: fixed` 元素恒为 `null`，不可用。
+- 按文本点击要取**最内层**匹配元素，否则会点到外层包装 div，事件不会落到按钮上（表现为「点了没反应」）。
+- 未登录场景用 `Target.createBrowserContext` + `Target.createTarget` 造独立上下文，不污染当前登录态。
+- Chrome 必须以后台方式启动（`run_in_background`），随 shell 退出一起被杀会导致 CDP 端口消失。
+
+## 前端
+- [ ] 键盘全流程走查：Tab 顺序与 Esc 已验收（见 CP7），**Enter 直接提交表单**仍未做。
 - [ ] `prefers-reduced-motion` 下回弹动效关闭的自动化断言。
 - [ ] 弱网 / 慢接口下的 loading 与超时提示。
 - [ ] 多标签页同时登录 / 退出的状态同步。

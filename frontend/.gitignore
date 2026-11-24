@@ -6,6 +6,9 @@ dist-ssr
 .cursorrules
 
 # Auto-generated files
-src/types/import/auto-imports.d.ts
+# auto-imports.d.ts 必须入库：`pnpm build` 的第一步是 `vue-tsc --noEmit`，
+# 而该声明文件由 unplugin-auto-import 在 Vite 构建期生成，干净检出会缺失，
+# 导致类型检查报 TS2304（Cannot find name 'ref' 等）而无法构建。
+# 该文件内容是 preset 全量声明，与业务代码无关，仅在升级 vue/@vueuse/core/pinia 时需要重新生成。
 src/types/import/components.d.ts
 .auto-import.json

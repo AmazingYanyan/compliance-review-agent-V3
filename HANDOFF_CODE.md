@@ -38,7 +38,7 @@
 - 15 个用例全绿（`cd backend && .venv/bin/python -m pytest -q`）。
 - **本轮新增** `test_auth_config_reports_registration_state`（默认开放）与
   `test_register_rejected_when_registration_disabled`（`monkeypatch.setattr(settings, "registration_enabled", False)` → 403 + config 返回 False）。
-- `tests/conftest.py` 提供 `client` fixture（ASGITransport + 内存库）与 `TEST_EMAIL/TEST_PASSWORD/TEST_DISPLAY_NAME`。
+- `tests/conftest.py` 提供 `client` fixture（ASGITransport 直连应用 + 独立 PostgreSQL 测试库 `compliance_test`）与 `TEST_EMAIL/TEST_PASSWORD/TEST_DISPLAY_NAME`。
 
 ---
 
@@ -284,7 +284,7 @@
 - 新增父路由 `/tasks`（`name: 'Tasks'`, component = `@views/index/index.vue` 即 AppLayout），两个子路由：
   - `''` → `TaskList` → `@views/tasks/list/index.vue`，`meta.title = 'menus.tasks.list.title'`
   - `':taskId/workbench'` → `TaskWorkbench` → `@views/tasks/workbench/index.vue`，`meta.title = 'menus.tasks.workbench.title'`，`meta.activePath = TASK_PATH`
-- `staticMenuList` 追加「我的任务」项：`{ path: TASK_PATH, name: 'TaskList', component: '/task/list/index', meta: { title: 'menus.tasks.title', icon: 'ri:file-list-3-line' } }`。
+- `staticMenuList` 追加「我的任务」项：`{ path: TASK_PATH, name: 'TaskList', component: '/tasks/list/index', meta: { title: 'menus.tasks.title', icon: 'ri:file-list-3-line' } }`。
   - 顺序：工作台在前 → `getFirstMenuPath` 仍解析为 `/dashboard`，首页路径不变。
   - `component` 字段是侧栏 `SidebarSubmenu.isNavigableRoute` 判定叶子可导航的必要条件。
 

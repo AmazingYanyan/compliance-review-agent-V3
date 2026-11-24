@@ -88,7 +88,7 @@ docker run -d --name compliance-db -p 5433:5432 \
 # 2) 后端（Python 3.12，uv / venv）
 cd backend
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
-cp .env.example .env          # 或手动写 DATABASE_URL / PROCRASTINATE_DATABASE_URL
+cp ../.env.example .env          # 或手动写 DATABASE_URL / PROCRASTINATE_DATABASE_URL
 .venv/bin/alembic upgrade head          # 建表
 .venv/bin/python -m app.queue.setup      # 初始化 Procrastinate 队列表（幂等）
 .venv/bin/uvicorn app.main:app --reload --port 8000
@@ -122,6 +122,11 @@ cd backend
 cd ../frontend
 pnpm build                              # vue-tsc --noEmit && vite build
 ```
+
+> `frontend/src/types/import/auto-imports.d.ts` **已纳入版本管理**：它由 unplugin-auto-import 在 Vite 构建期生成，
+> 而 `pnpm build` 的第一步是 `vue-tsc --noEmit`，干净克隆若缺该文件会直接报 TS2304（`Cannot find name 'ref'`）。
+> 该文件是 preset 全量声明，与业务代码无关；升级 `vue` / `@vueuse/core` / `pinia` 后需重新生成
+> （`pnpm dev` 或 `pnpm build` 会自动刷新）并提交。
 
 测试使用独立的 PostgreSQL 库 `compliance_test`（由 `tests/conftest.py` 自动创建、迁移并初始化队列表），
 不会影响开发库；也**不需要启动 worker**。

@@ -200,3 +200,25 @@
   `must be number` 校验失败，只有无参数的 `list_pages` 可用；继续在该 MCP 上排查会持续消耗时间。
 - **代价**：需自备约 200 行 CDP 脚本（放在 `/tmp/cp7/`，不入库）；好处是视口模拟与截图可在同一会话内完成，
   且能用 `Target.createBrowserContext` 造未登录场景而不污染当前会话。
+
+### D29 · 干净检出可构建：把自动导入声明文件纳入版本管理
+- **选择**：把 `frontend/src/types/import/auto-imports.d.ts` 纳入版本管理（从 `frontend/.gitignore` 移除该行），
+  `components.d.ts` 保持忽略；`build` 脚本维持 `vue-tsc --noEmit && vite build` 的顺序不变。
+- **原因**：`auto-imports.d.ts` 由 unplugin-auto-import 在 Vite 构建期生成，被 `.gitignore` 排除，
+  而 `build` 的第一步就是 `vue-tsc --noEmit` → 干净克隆第一步就报 TS2304（`Cannot find name 'ref'` 等 316 条）。
+  实测确认：`components.d.ts` 对类型检查**非必需**（删除后仍 0 error），`auto-imports.d.ts` 是必需项；
+  且它是 **preset 全量声明**（304 项，含未使用的 `useDark`/`useTemplateRef`），与业务代码无关，
+  因此入库后不会随日常开发变旧 —— 日常新增的自动导入几乎必然已在其中。
+  候选方案「把 build 改为 `vite build && vue-tsc --noEmit`」被否：会让类型检查失去对产物的门禁作用
+  （产物先落地、类型错误后暴露），且每次构建仍要完整打包。
+- **代价**：仓库多一个生成文件；升级 `vue` / `@vueuse/core` / `pinia` 后需重新生成并提交
+  （`pnpm dev` 或 `pnpm build` 会自动刷新该文件；若此时 `vue-tsc` 报 TS2304，先刷新再提交）。
+  生成内容是确定性的 —— 已验证干净克隆与工作区生成结果逐字节一致，不会造成构建后 git 脏文件。
+
+### D30 · 阅读计划与「同文件不重复读取」规则的冲突处理
+- **选择**：阅读计划写入 `HANDOFF.md`（按 AGENTS.md 的 ≤15 个/阶段约束），**阶段结束即归档到 `TEST_TODO.md`**；
+  同一文件按阶段只读一次，跨阶段复用 `HANDOFF_CODE.md` 里的摘要（作用、调用关系、需修改位置）。
+- **原因**：两条规则在长会话下天然冲突 —— 规则一要求每阶段都写清单，规则二又禁止重复读同一文件；
+  若把清单长期留在 `HANDOFF.md`，它会随阶段累积并挤占交接文档（CP7 后 `HANDOFF.md` 已达 134 行，
+  超过「≤50 行」的交接要求）。归档到 `TEST_TODO.md` 既保留可追溯性，又让 `HANDOFF.md` 保持精简可交接。
+- **代价**：归档动作需要主动执行（本轮由 CP7.5 补做）；`TEST_TODO.md` 承担了「验收 + 归档」双重职责，篇幅偏长。
