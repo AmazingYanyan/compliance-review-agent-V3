@@ -1,0 +1,84 @@
+/**
+ * 全局 hover 反馈
+ *
+ * 目的：Element Plus 默认按钮的交互反馈偏弱，这里统一补一层轻微的
+ * 位移与阴影，让「按下去 / 悬停上去」有明确的视觉响应。
+ *
+ * 约定：
+ * - 实心与描边按钮：hover 上浮 1px 并加投影，按下时回落；
+ * - 文本 / 链接类按钮：不做位移，只做背景色过渡，避免行内布局抖动；
+ * - 全部基于既有主题变量（`--art-hover-color` 等），暗色模式自动跟随；
+ * - 尊重系统的「减弱动效」设置；
+ * - 只用 `:where()` 包裹状态，保证不覆盖 `motion.scss` 里的 `.motion-press` 按压缩放。
+ */
+
+// 悬停反馈：实心 / 描边按钮
+// 重复一次类名提高优先级，确保能盖过 Element Plus 自带的 transition
+.el-button.el-button:where(:not(.is-disabled):not(.el-button--text)) {
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+  }
+
+  &:active {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+// 悬停反馈：文本按钮（行内文字型，不位移，只换背景）
+.el-button:where(.el-button--text):not(.is-disabled) {
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+
+  &:hover {
+    background-color: var(--art-hover-color) !important;
+    border-radius: 4px;
+  }
+}
+
+// 悬停反馈：链接型按钮沿用通用按钮的位移与阴影，只额外补一层背景
+.el-button:where(.is-link):not(.is-disabled):hover {
+  background-color: var(--art-hover-color) !important;
+  border-radius: 4px;
+}
+
+// 可复用工具类：给非 Element Plus 的卡片 / 行 / 标签复用同一套反馈
+.art-hover-lift {
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    border-color 150ms ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgb(0 0 0 / 10%);
+  }
+}
+
+.art-hover-soft {
+  transition: background-color 150ms ease;
+
+  &:hover {
+    background-color: var(--art-hover-color);
+  }
+}
+
+// 尊重系统的「减弱动效」设置
+@media (prefers-reduced-motion: reduce) {
+  .el-button.el-button:where(:not(.is-disabled):not(.el-button--text)):hover {
+    transform: none;
+  }
+
+  .art-hover-lift:hover {
+    transform: none;
+  }
+}

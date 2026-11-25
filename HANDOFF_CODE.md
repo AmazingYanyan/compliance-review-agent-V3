@@ -347,3 +347,33 @@
 | 上游 `src/views/examples/tables/index.vue`（ElCollapse 段） | 「单展开区替换显示」的交互参考（本轮用 `ElTabs` 实现材料切换） |
 
 > 与 `docs/ADP_MAP.md` 的差异：本轮新增的 `src/views/tasks/**` 与 `src/mock/tasks.ts` 是本工程自建，上游不存在；上游 `src/views/examples/**`、`src/views/system/**` 在当前工程已被删除，故其范式需用 `git show 00c7e78:...` 查看。
+
+## 14. CP8.2 · 压缩核对工作台 + 真实 PDF 预览（本轮已改文件索引）
+
+| 文件 | 暴露的函数 / 组件 / 类型 | 与本轮的关系 | 修改位置 |
+| --- | --- | --- | --- |
+| `frontend/src/views/tasks/workbench/index.vue` | `TaskWorkbench`（默认导出组件）；内部计算属性 `task` / `currentMaterial` / `materialFormat` / `isPdf` / `isImage` / `pdfSource` / `imageSource` / `previewSample` / `ocrPages` / `totalPages` / `pageImage` / `currentText` / `hasSource` / `pageLabel` / `zoomLabel` / `isFitWidth`；方法 `prevPage` / `nextPage` / `zoomIn` / `zoomOut` / `fitWidth` / `handlePdfPageChange` / `handlePdfTotalChange` / `handlePdfZoomChange` / `handlePdfError` / `goTaskList` | 工作台页面。紧凑任务栏 + 原文区（图片 / PDF / 页图三分支）+ 识别文字区 | 整文件重写：`task-workbench__bar`（紧凑栏）、`task-preview__toolbar`（页码 / 翻页 / 缩放）、`task-preview__source` + `task-preview__text-col` 双列（去掉 `clamp(320px,52vh,560px)` 固定高度，改 `flex:1; min-height:0`） |
+| `frontend/src/components/business/pdf-viewer/index.vue` | `PdfViewer`（默认导出）；props `source`；emits `page-change` / `total-change` / `zoom-change` / `load-error`；expose `goToPage` / `zoomIn` / `zoomOut` / `fitWidth` / `reload` | PDF.js 渲染真实 PDF：默认适应宽度、连续滚动、页码跟随滚动、翻页滚动到对应页、缩放后仍停在当前页 | 新建。模块顶层 `GlobalWorkerOptions.workerSrc = workerUrl`（`import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'`） |
+| `frontend/src/mock/tasks.ts` | 新增 `MaterialFormat = 'image' \| 'pdf' \| 'pages'`；`TaskMaterial` 增加 `format` / `source`；`STORAGE_KEY` 升到 `compliance-task-mock-v3` | 材料「原件格式 + 原件地址」维度；种子 `T2026001` 挂 PDF（`M2026001-1`）与 PNG（`M2026001-4`）样例 | 类型区、`STORAGE_KEY`、`SEED_TASKS` |
+| `frontend/src/mock/previews.ts` | 新增 `OcrPage`；新增 `getOcrPages(taskId, materialId)`；保留 `getPreviewSample` | 把「识别文字」与「页图」解耦：PDF 样例无识别结果 → 右栏「暂无识别结果」 | `OCR_TEXTS` 索引 + `getOcrPages` |
+| `frontend/src/locales/langs/zh.json` | `menus.tasks.workbench.title` | 面包屑统一为「我的任务 / 核对工作台」 | `menus.tasks.workbench.title`：`工作台` → `核对工作台` |
+| `frontend/src/assets/styles/core/hover.scss` | 全局 `.el-button` hover 反馈 + `.art-hover-lift` / `.art-hover-soft` 工具类 | 用户附带的按钮观感优化（非本轮主线） | 新建；在 `frontend/src/assets/styles/index.scss` 末尾 `@use` |
+| `frontend/scripts/generate-sample-materials.mjs` | `main()`；`buildImageHtml()` / `buildPdfHtml()` / `runChrome()` | 代码生成纯合成样例原件（无头 Chrome 出 PNG / PDF） | 新建 |
+| `frontend/public/samples/license-scan.png`、`frontend/public/samples/charter.pdf` | 静态样例原件（900×1400 PNG / 3 页 PDF） | 工作台样例入口直接引用（`${import.meta.env.BASE_URL}samples/...`） | 新建产物 |
+| `frontend/package.json` / `frontend/pnpm-lock.yaml` | 依赖 `pdfjs-dist@6.5.438` | PDF.js 运行时 | `pnpm add pdfjs-dist` |
+
+### 调用关系（CP8.2）
+
+```text
+TaskWorkbench
+ ├─ mock/tasks.getTaskById → task / materials(format, source)
+ ├─ mock/previews.getPreviewSample → pages 格式的页图序列
+ ├─ mock/previews.getOcrPages    → 识别文字（PDF 样例为 undefined）
+ └─ PdfViewer(source)
+     └─ pdfjs-dist getDocument({url}) → 全局 workerSrc = pdf.worker.min.mjs?url
+```
+
+### 与 `docs/ADP_MAP.md` 的差异
+
+- `src/views/tasks/**`、`src/mock/**`、`src/components/business/**`、`src/assets/styles/core/hover.scss`、`frontend/scripts/**` 均为本工程自建，上游 ADP 不存在；上游 `src/views/examples/**`、`src/views/system/**` 在当前工程已删除。
+- `pdfjs-dist@6.5.438` 无 `exports` 字段（`main=build/pdf.mjs`），只能深路径导入；Worker 必须是 ESM，故用 `pdf.worker.min.mjs`（1.27MB）而非 `.js`。

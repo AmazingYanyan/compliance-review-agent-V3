@@ -24,3 +24,6 @@
 
 // 全局动效（按压反馈 / 轻量回弹）
 @use './core/motion.scss';
+
+// 全局 hover 反馈（按钮 / 卡片统一交互响应）
+@use './core/hover.scss';

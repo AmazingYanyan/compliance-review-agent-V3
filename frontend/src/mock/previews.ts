@@ -5,7 +5,9 @@
  * - 样例按 `taskId + materialId` 索引，同一材料在不同任务下互不影响；
  * - 页码从 1 开始；本轮不含 bbox（坐标定位与高亮留到后续阶段）；
  * - 页图是内联 SVG（data URI），不依赖任何外部文件或真实证照素材，
- *   后续接入真实单图 OCR 时只需替换本模块的取值实现，页面调用方式不变。
+ *   后续接入真实单图 OCR 时只需替换本模块的取值实现，页面调用方式不变；
+ * - `getOcrPages` 把「识别文字」与「页图」解耦，供单张图片 / 真实 PDF
+ *   这类没有页图序列的材料复用同一份模拟文字。
  *
  * @module mock/previews
  */
@@ -24,6 +26,14 @@ export interface PreviewPage {
 export interface PreviewSample {
   /** 全部页面，按页码升序 */
   pages: PreviewPage[]
+}
+
+/** 一页识别结果 */
+export interface OcrPage {
+  /** 页码，从 1 开始 */
+  pageNo: number
+  /** 该页的识别文字 */
+  text: string
 }
 
 const FONT = 'PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif'
@@ -344,4 +354,38 @@ const PREVIEW_SAMPLES: Record<string, PreviewSample> = {
 export function getPreviewSample(taskId: string, materialId: string): PreviewSample | undefined {
   if (!taskId || !materialId) return undefined
   return PREVIEW_SAMPLES[`${taskId}::${materialId}`]
+}
+
+/**
+ * 识别文字索引：`taskId::materialId` → 按页的识别文字
+ *
+ * 只给**没有页图序列**的材料（单张图片、真实 PDF）单独挂文字；
+ * 页图序列材料的文字直接来自 `PREVIEW_SAMPLES`。
+ */
+const OCR_TEXTS: Record<string, OcrPage[]> = {
+  // PNG 原件样例：单张图片配一段模拟识别文字
+  'T2026001::M2026001-4': [{ pageNo: 1, text: licenseText }]
+}
+
+/**
+ * 取指定任务指定材料的识别文字（按页）
+ *
+ * 识别文字与页图解耦：PDF 原件本轮没有识别结果，返回 undefined，
+ * 由页面显示「暂无识别结果」。
+ *
+ * @param taskId 任务 ID
+ * @param materialId 材料 ID
+ * @returns 按页的识别文字；没有识别结果时返回 undefined
+ */
+export function getOcrPages(taskId: string, materialId: string): OcrPage[] | undefined {
+  if (!taskId || !materialId) return undefined
+
+  const key = `${taskId}::${materialId}`
+  const ocr = OCR_TEXTS[key]
+  if (ocr) return ocr
+
+  const sample = PREVIEW_SAMPLES[key]
+  if (!sample) return undefined
+
+  return sample.pages.map((page) => ({ pageNo: page.pageNo, text: page.text }))
 }

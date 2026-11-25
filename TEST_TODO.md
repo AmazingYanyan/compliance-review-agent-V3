@@ -254,3 +254,56 @@ CP8.1 补充的坑：
 
 
 
+
+## 核对工作台布局与真实 PDF 预览（CP8.2 · 2026-11-25）
+
+### 本阶段阅读清单（按 `AGENTS.md` D30 归档）
+
+| # | 文件 | 用途 |
+| --- | --- | --- |
+| 1 | `frontend/src/views/tasks/workbench/index.vue` | 工作台现状（CP8.1 版），本轮重写的对象 |
+| 2 | `frontend/src/mock/tasks.ts` | 材料结构与种子任务，确认要加「原件格式 / 原件地址」 |
+| 3 | `frontend/src/mock/previews.ts` | 页图样例与识别文字来源，确认要解耦 |
+| 4 | `frontend/src/views/tasks/list/index.vue` | 列表页入口与三态按钮文案（回归用） |
+| 5 | `frontend/src/router/routes/staticRoutes.ts` | `/tasks` 路由、`meta.activePath`、面包屑来源 |
+| 6 | `frontend/src/locales/langs/zh.json` / `en.json` | `menus.tasks.*` 文案（面包屑统一用） |
+| 7 | `frontend/vite.config.ts` | `base` / proxy / AutoImport / build.target，确认 Worker 打包方式 |
+| 8 | `frontend/src/assets/styles/core/app.scss` | `.art-full-height` / `.art-table-card`（剩余视口高度的基础） |
+| 9 | `frontend/src/assets/styles/core/el-ui.scss` | `.el-button` 覆写位置（hover 特效落点） |
+| 10 | `frontend/src/assets/styles/core/motion.scss` | 既有 `.motion-press` 按压反馈，避免 hover 规则覆盖它 |
+| 11 | `frontend/src/assets/styles/index.scss` | 全局样式引入顺序 |
+| 12 | `frontend/src/hooks/core/useLayoutHeight.ts` | `--art-full-height` 的写入时机 |
+| 13 | `frontend/node_modules/pdfjs-dist/types/src/display/api.d.ts` | `RenderParameters{canvas,viewport}` / `GlobalWorkerOptions` / `PDFDocumentProxy` |
+| 14 | `frontend/node_modules/pdfjs-dist/build/pdf.mjs` | Worker 解析方式、`rendererSrc` 未设置会抛错（该路径本轮不启用） |
+
+### 逐项验收（开发模式，1440×900 与 390×844）
+
+| # | 验收项 | 结果 | 证据 |
+| --- | --- | --- | --- |
+| ① | 布局压缩：改造前后截图、左右预览区可见高度、核对区变大、左右独立滚动 | 通过 | 改造前：任务信息卡 138px、预览区 468px、单栏高 466px；改造后：紧凑栏 40px、预览区 618px、左右栏各 576px（顶边对齐 286px）。长文本下左栏滚到 80 时右栏仍为 0，右栏滚到 103 时左栏仍为 80。截图 `cp82-layout-before-desktop.png` / `cp82-layout-after-desktop.png` |
+| ② | 预览切换：图片 → PDF → 图片，内容 / 页码 / 右栏状态正确更新 | 通过 | PNG：第 1 / 1 页、`license-scan.png` 原图 900×1400 适应宽度、右栏有识别文字；PDF：第 1 / 3 页、3 张画布、右栏「暂无识别结果」；切回 PNG：页图与文字复原、无 PDF 组件残留；重进 PDF 回到第 1 页且恢复「适应宽度」 |
+| ③ | PDF 阅读：第一页渲染、连续滚动更新页码、前后翻页、缩放与恢复适应宽度 | 通过 | 首屏画布 522×738 且取样到 2806 个红像素 + 3474 个深色像素（页码为红字，说明真实渲染）；滚到底 → 第 3 / 3 页；上一页 → 第 2 / 3 页（scrollTop 762）；下一页 → 第 3 / 3 页且「下一页」禁用；首页「上一页」禁用；放大 → 652px / 125%，缩小 → 522px / 100%，「适应宽度」在已是适应宽度时禁用 |
+| ④ | 窄屏 390px：返回入口、材料切换、PDF 翻页与缩放可用，整页无横向溢出 | 通过 | `documentElement.scrollWidth == clientWidth == 390`；回到工作台、4 个材料页签可点；PDF 3 张画布、翻页到第 2 / 3 页、放大到 125%（画布超宽由 PDF 区自身横向滚动，页面不溢出）；窄屏工具栏改为可换行自适应高度 |
+| ⑤ | 干净构建：克隆到新目录、检出交付 SHA、`pnpm install --frozen-lockfile` + `pnpm build` | 见下方「干净构建记录」 | — |
+| ⑥ | 生产产物试跑：起 dist、登录、确认 Worker 加载与翻页；开发模式同样冒烟 | 见下方「生产产物试跑记录」 | 开发模式已通过（Worker 资源 `/node_modules/pdfjs-dist/build/pdf.worker.min.mjs` 加载成功，控制台无 error / warning，无网络失败） |
+
+### 附带项：按钮 hover 反馈
+
+- 新增 `frontend/src/assets/styles/core/hover.scss`：实心 / 描边 / 链接按钮 hover 上浮 1px + 投影，文本型按钮只换背景色；全部走主题变量（暗色模式跟随），并尊重 `prefers-reduced-motion`。
+- 实测：列表页「开始」（链接型）与工作台「返回我的任务」（默认型）hover 后 `transform: translateY(-1px)` + `box-shadow: 0 4px 12px`，移开即复位；截图 `cp82-button-hover.png`。
+- 注意：Element Plus 的按钮样式是独立 CSS chunk，加载顺序在全局样式之后，因此用 `.el-button.el-button:where(...)` 提高一级优先级，保证 transition 生效（且不覆盖 `motion.scss` 的 `.motion-press` 缩放）。
+
+### 干净构建记录
+
+> 待补：干净克隆目录、检出 SHA、Node / pnpm 版本、两条命令退出码与关键输出。
+
+### 生产产物试跑记录
+
+> 待补：dist 启动方式、登录结果、Worker 资源地址、翻页结果。
+
+### 后续验证（下一阶段接真实 OCR 时单独核对）
+
+1. **单张图片**：沿用已实测的原图像素坐标基准（`license-scan.png` 为 900×1400；真实上传后需核对像素尺寸与 `bbox` 坐标来源是否同一坐标系）。
+2. **真实 PDF 接 OCR 后**：单独核对「OCR 页图」与「PDF.js 渲染页」的页码口径、页面方向（旋转 / 竖排）、可见区域是否一致；两者对齐后才验收区域高亮。
+3. **页码口径**：OCR 返回的页码与 PDF.js 的 `numPages` 是否从 1 开始、同序；本页 PDF 样例 3 页、页脚写明「第 N 页 / 共 3 页」。
+4. **Worker 产物**：生产构建里 Worker 是独立 chunk（`dist/assets/pdf.worker.min-*.mjs`），后续若改 CDN / 离线包策略需重跑本表 ⑥。

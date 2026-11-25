@@ -22,6 +22,15 @@ export type CustomerType = 'general' | 'small' | 'tech'
 /** 材料类型：公司章程 / 营业执照 / 财务报表 */
 export type MaterialType = 'charter' | 'license' | 'financial'
 
+/**
+ * 材料原件格式
+ *
+ * - `image`：单张图片原件（PNG / JPG），原文区直接显示原图；
+ * - `pdf`：真实 PDF 文件，原文区用 PDF.js 渲染；
+ * - `pages`：合成的页图序列，原文区按页手动翻页。
+ */
+export type MaterialFormat = 'image' | 'pdf' | 'pages'
+
 /** 任务关联的材料 */
 export interface TaskMaterial {
   /** 材料 ID */
@@ -30,6 +39,10 @@ export interface TaskMaterial {
   name: string
   /** 材料类型 */
   type: MaterialType
+  /** 原件格式，决定原文区的渲染方式 */
+  format: MaterialFormat
+  /** 原件地址（`image` / `pdf` 格式必填，`pages` 格式由页图样例驱动） */
+  source?: string
 }
 
 /** 一条授信核对任务 */
@@ -69,8 +82,10 @@ interface TaskMockState {
  *
  * CP8.1 给待核对样例任务补挂了「财务报表」材料，键名顺延一版，
  * 让旧会话（仍缓存着上一版种子）也能拿到新的样例材料。
+ *
+ * CP8.2 给材料增加了「原件格式」维度并挂上真实样例原件，键名再次顺延。
  */
-const STORAGE_KEY = 'compliance-task-mock-v2'
+const STORAGE_KEY = 'compliance-task-mock-v3'
 
 /** 任务状态文案 */
 export const TASK_STATUS_TEXT: Record<TaskStatus, string> = {
@@ -123,9 +138,10 @@ const DEFAULT_QUERY: TaskListQuery = { companyName: '', status: 'all' }
  * 覆盖待核对 / 核对中 / 已完成三种状态，并包含一条关联多份材料的样例。
  *
  * 其中 T2026001（待核对）是本轮预览样例的主入口：
- * - M2026001-1 公司章程：无预览样例（显示「暂无预览数据」）
- * - M2026001-2 营业执照：单页样例
- * - M2026001-3 财务报表：多页样例
+ * - M2026001-1 公司章程：真实 PDF 原件（`/samples/charter.pdf`，3 页合成样例），本轮没有识别结果
+ * - M2026001-2 营业执照：合成页图序列（单页），带模拟 OCR 文字
+ * - M2026001-3 财务报表：合成页图序列（3 页），带模拟 OCR 文字
+ * - M2026001-4 营业执照扫描件：单张 PNG 原件（`/samples/license-scan.png`），带模拟 OCR 文字
  * T2026002 待核对但没有任何材料（空态入口）；T2026004 已完成（只读入口）。
  */
 const SEED_TASKS: ReviewTask[] = [
@@ -136,9 +152,22 @@ const SEED_TASKS: ReviewTask[] = [
     status: 'pending',
     createdAt: '2026-11-18T09:24:00.000Z',
     materials: [
-      { id: 'M2026001-1', name: '公司章程', type: 'charter' },
-      { id: 'M2026001-2', name: '营业执照', type: 'license' },
-      { id: 'M2026001-3', name: '财务报表', type: 'financial' }
+      {
+        id: 'M2026001-1',
+        name: '公司章程',
+        type: 'charter',
+        format: 'pdf',
+        source: `${import.meta.env.BASE_URL}samples/charter.pdf`
+      },
+      { id: 'M2026001-2', name: '营业执照', type: 'license', format: 'pages' },
+      { id: 'M2026001-3', name: '财务报表', type: 'financial', format: 'pages' },
+      {
+        id: 'M2026001-4',
+        name: '营业执照扫描件',
+        type: 'license',
+        format: 'image',
+        source: `${import.meta.env.BASE_URL}samples/license-scan.png`
+      }
     ]
   },
   {
@@ -156,8 +185,8 @@ const SEED_TASKS: ReviewTask[] = [
     status: 'in_review',
     createdAt: '2026-11-16T03:42:00.000Z',
     materials: [
-      { id: 'M2026003-1', name: '公司章程', type: 'charter' },
-      { id: 'M2026003-2', name: '财务报表', type: 'financial' }
+      { id: 'M2026003-1', name: '公司章程', type: 'charter', format: 'pages' },
+      { id: 'M2026003-2', name: '财务报表', type: 'financial', format: 'pages' }
     ]
   },
   {
@@ -167,9 +196,9 @@ const SEED_TASKS: ReviewTask[] = [
     status: 'completed',
     createdAt: '2026-11-14T08:15:00.000Z',
     materials: [
-      { id: 'M2026004-1', name: '公司章程', type: 'charter' },
-      { id: 'M2026004-2', name: '营业执照', type: 'license' },
-      { id: 'M2026004-3', name: '财务报表', type: 'financial' }
+      { id: 'M2026004-1', name: '公司章程', type: 'charter', format: 'pages' },
+      { id: 'M2026004-2', name: '营业执照', type: 'license', format: 'pages' },
+      { id: 'M2026004-3', name: '财务报表', type: 'financial', format: 'pages' }
     ]
   }
 ]

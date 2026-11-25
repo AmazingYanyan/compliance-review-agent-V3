@@ -247,3 +247,45 @@
   翻页与切材料都重置滚动到顶部（翻页时也重置，便于从新页顶部阅读）。
 - **无样例材料的处理**：当前材料没有样例时显示「暂无预览数据」（`ElEmpty`）并清空图文；
   任务本身没有任何材料时仍沿用原有「该任务尚未上传任何材料」空态 —— 两者语义不同，不合并。
+
+### D33 · 原文区按「材料格式」分支渲染，识别文字与页图解耦
+- **选择**：`TaskMaterial` 增加 `format: 'image' | 'pdf' | 'pages'` 与 `source`；原文区按格式分三支
+  （单图直接显示原图 / PDF 用 PDF.js / 页图序列沿用 CP8.1 手动翻页）；
+  识别文字改由 `getOcrPages(taskId, materialId)` 单独提供，`getPreviewSample` 只负责页图。
+- **原因**：任务要求「左侧原件由材料数据独立驱动」「图片和 PDF 共用原文区外层布局，按材料格式选择渲染方式」；
+  同时 PDF 样例没有识别结果，若识别文字仍绑在页图样例上，就无法表达「有原件但没识别结果」。
+- **代价**：多一个 `format` 字段与一个取数函数；接真实接口时 `TaskMaterial` 需要对应扩展。
+
+### D34 · PDF.js Worker 用项目本地构建产物，不引 CDN、不启用 OffscreenCanvas 渲染器
+- **选择**：`import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'` 后赋给
+  `GlobalWorkerOptions.workerSrc`；只设 `workerSrc`，不设 `rendererSrc`。
+- **原因**：`pdfjs-dist@6.5.438` 无 `exports` 字段、Worker 必须是 ESM（`new Worker(url, {type:'module'})`），
+  只有 `pdf.worker.min.mjs` 可用；`?url` 让 Vite 把它当静态资源打进产物，开发与生产都能加载，
+  不依赖外网。`rendererSrc` 是 OffscreenCanvas 渲染器的 worker，本轮不需要（pdf.js 未设置时会直接抛错）。
+- **代价**：Worker 约 1.27MB，生产产物里是独立 chunk（`dist/assets/pdf.worker.min-*.mjs`）；若后续要压缩需另做策略。
+
+### D35 · 工作台改为紧凑任务栏 + 占满剩余视口高度的双栏
+- **选择**：任务信息收进一条紧凑栏（企业名 + 客户类型 + 状态 + 任务编号 + 创建时间 + 返回按钮）；
+  预览区去掉 `clamp(320px, 52vh, 560px)` 固定高度，改用 `flex:1; min-height:0` 占满剩余高度，
+  左右两栏各自滚动；窄屏切上下布局。
+- **原因**：任务要求「取消现有预览栏固定高度上限」「桌面双栏利用剩余视口高度」；旧实现的信息卡占 138px，
+  预览区只有 468px，内容被视口下沿截断。
+- **代价**：依赖 `art-full-height` + `art-table-card` 的 flex 链，`.el-card__body` 需改成 flex 列；
+  ≤640px 时 `art-full-height` 会退化为 `height:auto`，窄屏改为整页滚动 + 面板内滚。
+
+### D36 · 样例原件由代码生成（无头 Chrome），纯合成、不碰真实材料
+- **选择**：新增 `frontend/scripts/generate-sample-materials.mjs`，用本机 Chrome 的
+  `--screenshot` / `--print-to-pdf` 生成 `frontend/public/samples/license-scan.png`（900×1400）与
+  `frontend/public/samples/charter.pdf`（3 页）；产物与脚本一起入库。
+- **原因**：任务要求「PDF 由代码生成，各页放不同虚构文字和醒目页码」「交付样例文件及生成方式」，
+  并明确不得读取旧工作区的 PDF、客户材料或 OCR 报文。`sips` 不支持 SVG 输入、Python 无 PIL，
+  无头 Chrome 是本机唯一可用的出图链路。
+- **代价**：生成脚本依赖本机 Chrome 路径（脚本内已探测 6 个候选路径）；换机器需重跑脚本。
+
+### D37 · 按钮 hover 反馈写成全局可复用样式，而不是逐个按钮加类
+- **选择**：新增 `frontend/src/assets/styles/core/hover.scss`，对 `.el-button` 统一加 hover 上浮 + 投影，
+  文本型按钮只换背景；另提供 `.art-hover-lift` / `.art-hover-soft` 供非 Element Plus 元素复用。
+- **原因**：用户提出「90% 以上的按钮加 hover 特效，是否可以写好一个 CSS 之后复用」；
+  逐个加类成本高且容易漏。ADP 已有 `motion.scss`（按压反馈）与 `--art-hover-color` 变量可复用。
+- **代价**：Element Plus 的按钮样式是独立 CSS chunk、加载更晚，需把选择器提到
+  `.el-button.el-button:where(...)` 才能压过它的 `transition`；同时用 `:where()` 保证不覆盖 `.motion-press` 的按压缩放。
