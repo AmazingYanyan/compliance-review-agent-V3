@@ -377,3 +377,22 @@ TaskWorkbench
 
 - `src/views/tasks/**`、`src/mock/**`、`src/components/business/**`、`src/assets/styles/core/hover.scss`、`frontend/scripts/**` 均为本工程自建，上游 ADP 不存在；上游 `src/views/examples/**`、`src/views/system/**` 在当前工程已删除。
 - `pdfjs-dist@6.5.438` 无 `exports` 字段（`main=build/pdf.mjs`），只能深路径导入；Worker 必须是 ESM，故用 `pdf.worker.min.mjs`（1.27MB）而非 `.js`。
+
+### 14.4 生产产物试跑踩坑（验收⑥，非产品缺陷）
+
+1. **pdf.js 渲染依赖 `requestAnimationFrame`**：`pdf.mjs` 的 `InternalRenderTask._scheduleNext()`（`build/pdf.mjs` 约 17990 行）用
+   `window.requestAnimationFrame` 调度渲染循环。后台标签页（`document.visibilityState === 'hidden'`）浏览器不执行 rAF →
+   `page.render()` 的 promise 永久 pending → 表现为**页码停在「暂无页码」、画布尺寸已设但内容空白、且没有任何报错**
+   （Worker 正常握手、`GetOperatorList` 正常返回）。
+   排查抓手：`Emulation.setFocusEmulationEnabled{true}` + `Page.bringToFront` 让页面可见后 rAF 恢复，渲染随即正常。
+   **后续任何 PDF 渲染验收脚本都必须先激活页面**，否则会误判为「生产构建坏了」。
+2. **反向代理必须保留 `Host` 头**：后端 `backend/app/api/deps.py` 的 `require_trusted_origin`（约 43–66 行）用
+   `urlparse(origin).netloc == request.headers['host']` 判同源。自写静态服务代理 `/api` 时若把 `Host` 改写成
+   `127.0.0.1:8000`，Cookie 写请求会被判「请求来源不被信任」→ 403，`refresh` 永远失败 → 刷新页面即掉登录。
+   Vite dev proxy 默认保留 Host，所以开发模式不暴露这个问题。修法：代理转发时**原样透传 `req.headers`**。
+3. **`Network.getCookies` 的 `urls` 是按路径匹配的**：cookie 的 `Path=/api/v1/auth` 用 `urls: ['http://host/']` 查不到，
+   必须给带路径的 URL（`http://host/api/v1/auth/refresh`）才会命中——否则会误判成「Cookie 没种下」。
+4. **`Network.enable` 之后 `Network.getCookies` 才能拿到跨路径 cookie**；`fetch` 的响应头读不到 `set-cookie`（浏览器禁止 JS 读取该头），
+   判断 Cookie 是否下发应看 `Network.getCookies` 而非 `fetch` 响应头。
+5. **PDF.js Worker 产物核验**：`dist/assets/pdf.worker.min-*.mjs` 与 `node_modules/pdfjs-dist/build/pdf.worker.min.mjs`
+   SHA-256 完全一致（`1e64c824…`），说明 Vite 的 `?url` 是原样拷贝，不会因二次打包而损坏 Worker。

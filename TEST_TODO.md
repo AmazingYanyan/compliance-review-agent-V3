@@ -284,8 +284,8 @@ CP8.1 补充的坑：
 | ② | 预览切换：图片 → PDF → 图片，内容 / 页码 / 右栏状态正确更新 | 通过 | PNG：第 1 / 1 页、`license-scan.png` 原图 900×1400 适应宽度、右栏有识别文字；PDF：第 1 / 3 页、3 张画布、右栏「暂无识别结果」；切回 PNG：页图与文字复原、无 PDF 组件残留；重进 PDF 回到第 1 页且恢复「适应宽度」 |
 | ③ | PDF 阅读：第一页渲染、连续滚动更新页码、前后翻页、缩放与恢复适应宽度 | 通过 | 首屏画布 522×738 且取样到 2806 个红像素 + 3474 个深色像素（页码为红字，说明真实渲染）；滚到底 → 第 3 / 3 页；上一页 → 第 2 / 3 页（scrollTop 762）；下一页 → 第 3 / 3 页且「下一页」禁用；首页「上一页」禁用；放大 → 652px / 125%，缩小 → 522px / 100%，「适应宽度」在已是适应宽度时禁用 |
 | ④ | 窄屏 390px：返回入口、材料切换、PDF 翻页与缩放可用，整页无横向溢出 | 通过 | `documentElement.scrollWidth == clientWidth == 390`；回到工作台、4 个材料页签可点；PDF 3 张画布、翻页到第 2 / 3 页、放大到 125%（画布超宽由 PDF 区自身横向滚动，页面不溢出）；窄屏工具栏改为可换行自适应高度 |
-| ⑤ | 干净构建：克隆到新目录、检出交付 SHA、`pnpm install --frozen-lockfile` + `pnpm build` | 见下方「干净构建记录」 | — |
-| ⑥ | 生产产物试跑：起 dist、登录、确认 Worker 加载与翻页；开发模式同样冒烟 | 见下方「生产产物试跑记录」 | 开发模式已通过（Worker 资源 `/node_modules/pdfjs-dist/build/pdf.worker.min.mjs` 加载成功，控制台无 error / warning，无网络失败） |
+| ⑤ | 干净构建：克隆到新目录、检出交付 SHA、`pnpm install --frozen-lockfile` + `pnpm build` | 通过 | 见下方「干净构建记录」 |
+| ⑥ | 生产产物试跑：起 dist、登录、确认 Worker 加载与翻页；开发模式同样冒烟 | 通过 | 见下方「生产产物试跑记录」 |
 
 ### 附带项：按钮 hover 反馈
 
@@ -295,11 +295,49 @@ CP8.1 补充的坑：
 
 ### 干净构建记录
 
-> 待补：干净克隆目录、检出 SHA、Node / pnpm 版本、两条命令退出码与关键输出。
+验收目录 `/tmp/v3-cp82-clean`（`git clone` 自本仓库后 `git checkout cd6b7a5`；无 `node_modules` 复用，依赖真实安装；
+构建前未启动开发服务，也未手工准备任何声明文件）：
+
+| 项 | 值 |
+| --- | --- |
+| 检出 SHA | `cd6b7a5025ae46cdd0cb154b6d34471465f44269` |
+| Node / pnpm | `v24.14.0` / `10.32.1` |
+
+| 命令 | 退出码 | 关键输出 |
+| --- | --- | --- |
+| `pnpm install --frozen-lockfile` | **0** | `Done in 487ms`（lockfile 为 pnpm 10.32.1 重排后的 YAML 风格，`lockfileVersion` 仍为 `9.0`，`--frozen-lockfile` 通过） |
+| `pnpm build`（= `vue-tsc --noEmit && vite build`） | **0** | 类型检查 0 error → `✓ built in 11.04s` |
+
+产物核对：`dist/index.html`、`dist/samples/charter.pdf`（199066 B / 3 页）、`dist/samples/license-scan.png`（900×1400）、
+`dist/assets/pdf.worker.min-CIqJB0yW.mjs`（1271915 B，与 `node_modules/pdfjs-dist/build/pdf.worker.min.mjs` **SHA-256 完全一致**，
+说明 `?url` 是原样拷贝而非二次打包）；构建后 `git status --short` 为空。
 
 ### 生产产物试跑记录
 
-> 待补：dist 启动方式、登录结果、Worker 资源地址、翻页结果。
+启动方式：自写静态服务 `/tmp/cp82/serve.mjs` 提供 `/tmp/v3-cp82-clean/frontend/dist`（端口 4180），并把 `/api` 代理到本机后端 8000
+（**保留原始 Host 头**——后端 `require_trusted_origin` 用 `origin.netloc == request.headers['host']` 做同源判定，
+代理若改写 Host 会让 Cookie 写请求被判「请求来源不被信任」而 403）。
+
+登录：`POST /api/v1/auth/login` → 200，`Set-Cookie: refresh_token=...; HttpOnly; Path=/api/v1/auth; SameSite=lax`；
+刷新页面后 `POST /api/v1/auth/refresh` → 200（「会话已续期」），会话保持正常。
+
+| 项 | 生产产物（dist @ 4180） | 开发模式（dev @ 3006） |
+| --- | --- | --- |
+| Worker 资源 | `/assets/pdf.worker.min-CIqJB0yW.mjs`（**产物目录内**，200 / `text/javascript`） | `/node_modules/.pnpm/pdfjs-dist@6.5.438/.../pdf.worker.min.mjs?url` |
+| PDF 资源 | `/samples/charter.pdf` | `/samples/charter.pdf` |
+| 首屏 | 页码「第 1 / 3 页」，3 张画布 522×738 | 同左 |
+| 渲染取样 | 2806 个红像素 + 1693 个深色像素（页码为红字，证明真实渲染而非空白画布） | 同左 |
+| 翻页 | 下一页 → 第 2 / 3 页（scrollTop 762）→ 第 3 / 3 页且「下一页」禁用 | 同左 |
+| 右栏 | 「暂无识别结果」（PDF 样例无 OCR 文字） | 同左 |
+| 控制台 / 网络 | 无 error / warning，无请求失败 | 无 error / warning，无请求失败 |
+
+截图：`docs/screenshots/cp82-prod-pdf-desktop.png`（生产产物，第 3 / 3 页）。
+
+> **测试环境坑（不是产品缺陷）**：用 CDP 直连的后台标签页 `document.visibilityState === 'hidden'`，
+> 浏览器不执行 `requestAnimationFrame`，而 pdf.js 的渲染循环正是用 rAF 调度 → 渲染 promise 永久挂起、
+> 表现为「页码一直停在『暂无页码』、画布空白但无任何报错」。
+> 验收脚本需先 `Emulation.setFocusEmulationEnabled` + `Page.bringToFront` 让页面可见，rAF 恢复后渲染才正常。
+> 排查过程另见 `HANDOFF_CODE.md` §14.4。
 
 ### 后续验证（下一阶段接真实 OCR 时单独核对）
 
