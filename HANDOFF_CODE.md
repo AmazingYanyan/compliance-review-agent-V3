@@ -293,7 +293,49 @@
 
 ---
 
-## 12. 本轮读过的上游源码（定位用）
+## 12. CP8.1 · OCR 材料预览前端原型（本轮新增 / 修改）
+
+### `frontend/src/mock/previews.ts`（**本轮新建**）
+- 作用：OCR 材料预览的**前端模拟数据模块**，只提供合成样例（页图 + 该页模拟 OCR 文字）。
+- 导出类型：`PreviewPage{pageNo, image, text}`、`PreviewSample{pages}`。
+- 导出函数：`getPreviewSample(taskId: string, materialId: string): PreviewSample | undefined`
+  —— 按 `` `${taskId}::${materialId}` `` 查索引，**没有样例时返回 undefined**（页面据此显示「暂无预览数据」）。
+- 内部实现：`esc()` / `wrapText()` / `frame()`（页面外框与页脚）/ `buildDocumentPage()`（证照类「标签-值」行 + 合成印章）/ `buildTablePage()`（表格页）/ `toDataUri()`。
+- **坑（已修）**：`frame()` 必须输出**完整的 SVG 文档**（含根 `<svg xmlns=... width height viewBox>`）。
+  早期版本只拼接子元素，作为 `<img>` 的 data URI 会 `EncodingError: The source image cannot be decoded.`，
+  页图渲染为 24px 空 alt 文本 → 原件栏无法滚动，且触发 `[ResourceError]` 控制台错误。
+- 样例索引 `PREVIEW_SAMPLES`：
+  - `'T2026001::M2026001-2'` → 营业执照，**单页**（`licenseRows` 12 组标签/值 + `licenseText`）
+  - `'T2026001::M2026001-3'` → 财务报表，**3 页**（`financialPage1/2/3` 表头 + 数据行，文字由 `buildTableText()` 派生）
+- 其余材料（`T2026003::*`、`T2026004::*`、`M2026001-1` 公司章程）**没有**样例 → 显示「暂无预览数据」。
+- 全部为合成数据，未引用任何旧工作区的真实 PDF / OCR 结果 / 客户数据。
+
+### `frontend/src/mock/tasks.ts`（**本轮修改 3 处**）
+- `STORAGE_KEY`：`'compliance-task-mock'` → **`'compliance-task-mock-v2'`**（补挂了新材料，键名顺延一版让旧会话也拿到新样例材料）。
+- 种子 `T2026001` 材料列表改为 3 份：`M2026001-1 公司章程` / `M2026001-2 营业执照` / `M2026001-3 财务报表`。
+- `SEED_TASKS` 注释补充各条种子的用途（T2026001 预览样例主入口 / T2026002 无材料空态 / T2026004 只读入口）。
+- 其余导出（`TASK_STATUS_TEXT`、`MATERIAL_TYPE_TEXT`、`getTaskById`、`hasCharter` 等）未变。
+
+### `frontend/src/views/tasks/workbench/index.vue`（**本轮改造**）
+- 模板：材料切换卡片由「`ElTabPane` 内放占位 Alert」改为 **`ElTabs`（只做材料选择）+ 下方一套 `.task-preview` 预览区**：
+  - 工具栏：当前材料名 + `MATERIAL_TYPE_TEXT` 标签 + 「OCR 文字仅供阅读」提示 + 翻页控件（上一页 / 页码 / 下一页）。
+  - 预览主体 `.task-preview__body`：`v-if="currentPage"` 时渲染双栏（`.task-preview__pane--image` 放 `img`，`.task-preview__pane--text` 放 `pre`）；否则渲染 `.task-preview__empty`（`ElEmpty`「暂无预览数据」）。
+  - 保留：任务信息卡、「尚未上传公司章程」Alert、`v-else` 无材料卡（「该任务尚未上传任何材料」）、任务不存在的 `ElResult`。
+- script 新增：
+  - `import { getPreviewSample } from '@/mock/previews'`、`import { MATERIAL_TYPE_TEXT } from '@/mock/tasks'`。
+  - 状态：`pageNo = ref(1)`、`imagePaneRef` / `textPaneRef`（`HTMLElement | null`）。
+  - 计算属性：`currentMaterial`（按 `activeMaterial` 找材料）、`previewSample`（按 `taskId::materialId` 取样例）、
+    `hasSample`、`totalPages`、`currentPage`（`pages[pageNo-1]`）、`pageLabel`（无样例时显示「暂无页码」）。
+  - 方法：`resetScroll()`（`nextTick` 后把两栏 `scrollTop` 置 0）、`prevPage()` / `nextPage()`（越界不动作）。
+  - `watch(activeMaterial)` → `pageNo = 1` + `resetScroll()`；`watch(pageNo)` → `resetScroll()`（翻页回顶部）。
+  - `watch(task)` 逻辑不变（同步 `activeMaterial` + `worktabStore.updateTabTitle`）。
+- style 新增 `.task-preview*` 系列；**移除**已废弃的 `.task-material` / `.task-material__title`。
+  - `.task-preview__body`：`grid-template-columns: minmax(0,1fr) minmax(0,1fr)`；`@media (max-width: 768px)` 改单列。
+  - `.task-preview__pane`：`height: clamp(320px, 52vh, 560px); overflow: auto`（窄屏 320px），两栏各自独立滚动。
+
+---
+
+## 13. 本轮读过的上游源码（定位用）
 
 | 文件 | 借鉴点 |
 | --- | --- |

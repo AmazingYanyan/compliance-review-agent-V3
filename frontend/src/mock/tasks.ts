@@ -64,8 +64,13 @@ interface TaskMockState {
   query: TaskListQuery
 }
 
-/** sessionStorage 键名 */
-const STORAGE_KEY = 'compliance-task-mock'
+/**
+ * sessionStorage 键名
+ *
+ * CP8.1 给待核对样例任务补挂了「财务报表」材料，键名顺延一版，
+ * 让旧会话（仍缓存着上一版种子）也能拿到新的样例材料。
+ */
+const STORAGE_KEY = 'compliance-task-mock-v2'
 
 /** 任务状态文案 */
 export const TASK_STATUS_TEXT: Record<TaskStatus, string> = {
@@ -116,6 +121,12 @@ const DEFAULT_QUERY: TaskListQuery = { companyName: '', status: 'all' }
 /**
  * 种子样例
  * 覆盖待核对 / 核对中 / 已完成三种状态，并包含一条关联多份材料的样例。
+ *
+ * 其中 T2026001（待核对）是本轮预览样例的主入口：
+ * - M2026001-1 公司章程：无预览样例（显示「暂无预览数据」）
+ * - M2026001-2 营业执照：单页样例
+ * - M2026001-3 财务报表：多页样例
+ * T2026002 待核对但没有任何材料（空态入口）；T2026004 已完成（只读入口）。
  */
 const SEED_TASKS: ReviewTask[] = [
   {
@@ -126,7 +137,8 @@ const SEED_TASKS: ReviewTask[] = [
     createdAt: '2026-11-18T09:24:00.000Z',
     materials: [
       { id: 'M2026001-1', name: '公司章程', type: 'charter' },
-      { id: 'M2026001-2', name: '营业执照', type: 'license' }
+      { id: 'M2026001-2', name: '营业执照', type: 'license' },
+      { id: 'M2026001-3', name: '财务报表', type: 'financial' }
     ]
   },
   {

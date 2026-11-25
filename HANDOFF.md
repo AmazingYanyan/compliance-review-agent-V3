@@ -3,15 +3,15 @@
 > 工作规则见 `AGENTS.md`。读取优先级：HANDOFF.md → HANDOFF_CODE.md → docs/ADP_MAP.md → 源码。
 > 验收记录、阅读清单与待办归档在 `TEST_TODO.md`；关键取舍见 `DECISIONS.md`。
 
-## 当前状态（CP7.5 · 交接质量修复）
+## 当前状态（CP8.1 · OCR 材料预览前端原型）
 
-- 已交付：认证后端（注册 / 登录 / 会话恢复 / 退出）、ADP 原生主布局、「我的任务」前端原型（列表 / 新建弹窗 / 核对工作台占位）。
-- 路由：`/dashboard`（`Dashboard`）、`/tasks`（`TaskList`）、`/tasks/:taskId/workbench`（`TaskWorkbench`），均在 AppLayout 内且受保护；工作台靠 `meta.activePath='/tasks'` 让侧栏保持高亮「我的任务」，面包屑为「我的任务 / 工作台」。
-- 任务数据全部来自前端模拟模块 `frontend/src/mock/tasks.ts`（sessionStorage 持久化：同标签页刷新保留，独立新会话回到种子样例）。状态口径：待核对 / 核对中 / 已完成；本轮仅新建「待核对」。
-- 列表复用 ADP 的 `ArtSearchBar` + `ArtTable` + `ArtTableHeader`；企业名称子串匹配（忽略首尾空格）+ 状态筛选（全部 / 待核对 / 核对中 / 已完成）可组合并重置；工作台材料用 `ElTabs` 单内容区切换。
-- i18n：`menus.tasks.*`（zh / en）已补。类型检查与构建通过（`vue-tsc --noEmit` 0 error，`pnpm build` 通过）。
-- 干净克隆可构建：`src/types/import/auto-imports.d.ts` 已纳入版本管理（见 `DECISIONS.md` D29）。
-- 未做（后续阶段）：后端任务与材料接口、真实文件上传、PDF 渲染、PaddleOCR、LLM、任务权限矩阵与双账号隔离。
+- 已交付：认证后端（注册 / 登录 / 会话恢复 / 退出）、ADP 原生主布局、「我的任务」前端原型（列表 / 新建弹窗 / 核对工作台）、**工作台材料 OCR 预览区（单页 + 多页，纯前端模拟）**。
+- 路由：`/dashboard`、`/tasks`（`TaskList`）、`/tasks/:taskId/workbench`（`TaskWorkbench`），均在 AppLayout 内且受保护；工作台靠 `meta.activePath='/tasks'` 让侧栏保持高亮。
+- 数据源全是前端模拟：`frontend/src/mock/tasks.ts`（任务与材料，sessionStorage 键 `compliance-task-mock-v2`）+ `frontend/src/mock/previews.ts`（按 `taskId::materialId` 索引的预览样例：页图 + 模拟 OCR 文字，**纯合成数据**）。
+- 预览区：顶部 `ElTabs` **只做材料选择**，下方**一套**双栏预览（左侧原件、右侧当前页 OCR 文字，两栏独立滚动）；「上一页／下一页」与「第 N / M 页」共用一套页码状态；切换材料时页码重置为 1、两栏滚动归零。桌面两栏 / 390px 上下布局。
+- 样例入口：种子 `T2026001`（待核对）挂 3 份材料 —— 公司章程（无样例→「暂无预览数据」）、营业执照（单页）、财务报表（3 页）；`T2026002` 无材料（空态）；`T2026004` 已完成（只读入口）。
+- 类型检查与构建通过（`vue-tsc --noEmit` 0 error；`pnpm build` ✓ built in 9.09s）；浏览器 22 项验收全部通过，截图在 `docs/screenshots/cp81-*`。
+- 未做（后续阶段）：真实上传、PaddleOCR 接口与轮询、多页 PDF 解析、坐标定位与高亮、章程检查项摘录与人工决定、数据库改动。
 
 ## 运行方式
 
@@ -33,14 +33,15 @@
 | `GET /api/v1/user/info` | Bearer 鉴权 → `id/displayName/email` |
 | `GET /health` | 服务与数据库状态 |
 
-> 任务相关接口尚未定义，下一阶段在此表补充真实任务 API。
+> 任务与材料相关接口尚未定义，下一阶段在此表补充真实任务 API。
 
 ## 已知问题
 
+- 预览样例是**合成数据**（页图为内联 SVG data URI），不对应任何真实证照；`bbox`、真实页宽高、页码口径均待接真实 OCR 后核对。
 - 退出只撤销 refresh 会话；已签发的 access token 在 15 分钟内仍可用（无黑名单，D6）。
 - 开发账号密码固定，仅限本地；生产需替换 `JWT_SECRET` 并置 `COOKIE_SECURE=true`。
 - 任务数据只存在浏览器 sessionStorage：换浏览器 / 无痕窗口 / 关闭标签页即回到种子样例（D20）；任务模块尚无权限矩阵与双账号隔离。
-- 侧栏为本地静态菜单，接真实后端菜单时才需要 `RouteRegistry` / `MenuProcessor`（D2、D8）；顶栏「通知」红点待产品确认；`frontend/src/utils/constants/links.ts` 的 `WEB_LINKS` 已无引用者。
+- 侧栏为本地静态菜单，接真实后端菜单时才需要 `RouteRegistry` / `MenuProcessor`（D2、D8）；顶栏「通知」红点待产品确认。
 - 继承自上游：ADP 的 `build` 先跑 `vue-tsc` 而自动导入声明后生成，干净检出会失败；本工程用「声明文件入库」修复（D29），升级 vue/@vueuse/core/pinia 后需重新生成并提交。
 
 ## 索引

@@ -146,6 +146,17 @@
 
 上游对照（`git show 00c7e78:frontend/package.json` 与 `frontend/.gitignore`）：与当前工程一致 → 干净检出构建失败**继承自上游 ADP**。
 
+### CP8.1（OCR 材料预览原型）· 实际读取 6 个
+
+`frontend/src/mock/tasks.ts`、`frontend/src/views/tasks/workbench/index.vue`、
+`frontend/src/mock/previews.ts`（本轮新建）、`frontend/src/utils/sys/error-handle.ts`（排查 `[ResourceError]` 来源）、
+`HANDOFF.md` / `HANDOFF_CODE.md`（读 + 追加）。
+
+计划清单原列 8 项，其中 2 项未读且不再需要：
+`frontend/src/views/tasks/list/index.vue`（三态入口文案本轮未改）、`frontend/src/locales/langs/{zh,en}.json`（本轮未新增 i18n 文案）。
+另有 1 项计划外读取：`frontend/src/types/import/auto-imports.d.ts`（确认 `nextTick` 是否自动导入）与
+`frontend/src/assets/styles/core/tailwind.css`（确认 `--art-gray-*` 变量存在）—— 均为定点检索，未全文读。
+
 ## 归档：浏览器验收工具链（CP7）
 
 本机 **chrome-devtools MCP 的数值参数失效**：Trae 桥接层把数字序列化成字符串，
@@ -169,6 +180,60 @@
 - 未登录场景用 `Target.createBrowserContext` + `Target.createTarget` 造独立上下文，不污染当前登录态。
 - Chrome 必须以后台方式启动（`run_in_background`），随 shell 退出一起被杀会导致 CDP 端口消失。
 
+CP8.1 补充的坑：
+
+- **只改 hash 属于同文档导航**，不会重新加载应用 → 上一个页面的组件状态、控制台报错都会残留。
+  验收脚本里 `Page.navigate` 后要跟一次 `Page.reload`，否则会误判「控制台有错误」。
+- 应用启动会**恢复上次访问的标签页**（worktab 持久化在 localStorage）→ 整页重载后 hash 可能被覆盖成上次的路由。
+  `goto` 需在重载后校验 `location.href`，不一致时再导航一次（最多 4 次）。
+- `<img src="data:image/svg+xml,...">` 必须是**完整 SVG 文档**（含根 `<svg xmlns width height viewBox>`），
+  否则 `decode()` 抛 `EncodingError`，图片渲染为空 alt 文本（高度 24px），并被应用自己的
+  `registerResourceErrorHandler`（`frontend/src/utils/sys/error-handle.ts`）打成 `[ResourceError]` 控制台错误。
+
+## OCR 材料预览（CP8.1）
+
+代码已实现，`vue-tsc --noEmit` 与 `pnpm build` 均通过；浏览器逐项验收已完成（Chrome 1440px / 390px 实跑，22 项全过）。
+
+### 已验收
+
+- [x] **无材料空态**（种子 `T2026002`）：显示「该任务尚未上传任何材料」，无预览区，保留「返回我的任务」入口。
+- [x] **从列表进入**：在列表页点「开始」进入 `T2026001` 工作台（URL 变为 `/tasks/T2026001/workbench`）。
+- [x] **单页材料**（营业执照）：原件栏渲染页图（`naturalWidth=900`，`decode()` 成功），文字栏显示对应 OCR 文字；
+      页码「第 1 / 1 页」，上一页/下一页**均禁用**；文字含「营业执照（副本）」「91310000MA1FL2XY7K」「华信资本管理有限公司」，与页图一致。
+- [x] **多页材料**（财务报表 3 页）：第 1 页 → 第 2 页 → 第 3 页，页码分别为「第 1/3」「第 2/3」「第 3/3」，
+      页图 `src` 与文字内容逐页变化（资产部分 / 负债和所有者权益部分 / 利润表）；
+      首页「上一页」禁用、末页「下一页」禁用；翻回第 1 页时页图与文字与首次渲染完全一致。
+- [x] **材料切换重置**：停在第 2 页切到营业执照单页材料 → 页码回到「第 1/1 页」、图文整体替换为营业执照、
+      两栏 `scrollTop` 均为 0（无旧图文与滚动残留）；再切到未挂样例的公司章程 → 显示「暂无预览数据」，
+      DOM 中无 `img` / `pre` / `.task-preview__body` 残留，页码显示「暂无页码」，翻页按钮禁用。
+- [x] **双栏独立滚动**（1440px，第 2 页）：滚原件栏 → `imgScrollTop` 由 0 变 150，文字栏 `textScrollTop` 保持 0；
+      再滚文字栏 → `textScrollTop` 变 200，原件栏 `textScrollTop`/`imgScrollTop` 保持 150 不变（两栏互不影响）。
+      原件栏可滚动量 253px、文字栏 213px，**两栏都能产生实际滚动**。
+- [x] **不改变任务状态**：打开工作台、翻页、切换材料后，状态标签仍为「一般 / 待核对」，无状态流转。
+- [x] **只读入口**（`T2026004`）：标签为「一般 / 已完成 / 只读」，材料 Tabs 三个可见，可预览；
+      从列表点「查看」可正常进入。
+- [x] **390px 窄屏**：`gridTemplateColumns` 变为单列（`318px`）即上下布局；「上一页／下一页」可用（第 1 → 第 2 页切换正常）；
+      「返回我的任务」入口可见，翻页控件可见；`documentElement.scrollWidth === clientWidth === 390`（无横向溢出）；
+      无材料空态在窄屏同样正常。
+- [x] **控制台与网络**：整页重载后重跑（切换材料 + 翻页），`Runtime.consoleAPICalled` 无 error/warning、
+      `Log.entryAdded` 无记录、`Network.loadingFailed` 无记录。
+- [x] **截图**存入 `docs/screenshots/`：`cp81-{no-material,single-license,multi-financial,no-sample-material,readonly-completed}-{desktop,narrow}.png`（共 10 张）。
+
+### 验收中发现并修复的缺陷
+
+- [x] **页图无法解码**：SVG data URI 缺少根 `<svg xmlns/width/height/viewBox>` → `<img>` 抛
+      `EncodingError: The source image cannot be decoded.`，页图渲染为 24px 空 alt 文本，
+      导致原件栏无法滚动（`imgScrollH === imgClientH`），并触发 10 条 `[ResourceError]` 控制台错误。
+      修复：`frame()` 输出完整 SVG 文档。修复后 `naturalWidth=900 / naturalHeight=1200`、`decode()` 成功。
+- [x] **无样例材料页码显示「第 1 / 0 页」**：改为无样例时显示「暂无页码」。
+
+### 未覆盖 / 已知限制
+
+- [ ] 页图的视觉版式与真实扫描件不同（示意图），不用于判断 OCR 质量。
+- [ ] 键盘操作（Tab 聚焦翻页按钮、方向键翻页）未做走查。
+- [ ] 长材料（>50 页）的页码导航只有「上一页／下一页」，没有跳页输入或页码缩略图。
+- [ ] 预览区未做懒加载 / 虚拟滚动（当前样例仅 3 页）。
+
 ## 前端
 - [ ] 键盘全流程走查：Tab 顺序与 Esc 已验收（见 CP7），**Enter 直接提交表单**仍未做。
 - [ ] `prefers-reduced-motion` 下回弹动效关闭的自动化断言。
@@ -176,6 +241,16 @@
 - [ ] 多标签页同时登录 / 退出的状态同步。
 - [ ] 前端组件测试（Vitest）与端到端测试（Playwright）基建。
 - [ ] 侧栏多级菜单与面包屑的自动化断言（当前「我的任务」为单级菜单，工作台走 `activePath` 高亮）。
+
+## 后续迭代（CP8 后续阶段）
+
+- [ ] **接真实单图 OCR**：核对后端实际响应的**页码口径**（从 0 还是 1 开始）、**页宽高**、`bbox` 格式与**坐标空间**
+      （相对页图还是相对渲染尺寸、是否随缩放变化），据此确定持久化结构（页图存对象存储还是页表、OCR 文本存 JSON 还是关系表）。
+- [ ] **接真实多页 PDF**：PDF 解析与逐页转图，再单独验收**坐标定位与高亮**（本轮 `PreviewPage` 刻意不含 `bbox`）。
+- [ ] **章程检查项摘录与人工决定**：原文 / 摘录 / 出处 / 接受或拒绝（拒绝需填原因）的落库与回显。
+- [ ] **真实上传与 OCR 处理中状态**：上传进度、轮询、缺材料、提取失败、覆盖不全等工作台内部状态。
+- [ ] 数据库改动：任务 / 材料 / 页 / OCR 文本的表结构与迁移。
+
 
 
 
