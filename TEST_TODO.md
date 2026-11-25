@@ -339,6 +339,21 @@ CP8.1 补充的坑：
 > 验收脚本需先 `Emulation.setFocusEmulationEnabled` + `Page.bringToFront` 让页面可见，rAF 恢复后渲染才正常。
 > 排查过程另见 `HANDOFF_CODE.md` §14.4。
 
+### 最终 SHA 复验（文档提交后重跑）
+
+交付最终 SHA `ff922e4d5f16598990974b215542cdd994220da3`（含本文件的验收记录），
+重新克隆到 `/tmp/v3-cp82-final` 独立复验，结果与上表一致：
+
+| 项 | 结果 |
+| --- | --- |
+| 检出 SHA | `ff922e4d5f16598990974b215542cdd994220da3` |
+| Node / pnpm | `v24.14.0` / `10.32.1` |
+| `pnpm install --frozen-lockfile` | 退出码 **0**，`Done in 3.9s using pnpm v10.32.1` |
+| `pnpm build` | 退出码 **0**，`✓ built in 9.10s`（类型检查 0 error） |
+| 构建后 `git status --short` | 空（构建不产生脏文件） |
+| 产物 | `dist/index.html`、`dist/samples/charter.pdf`（199066 B）、`dist/samples/license-scan.png`（109974 B）、`dist/assets/pdf.worker.min-CIqJB0yW.mjs`（1271915 B，SHA-256 与 node_modules 一致） |
+| 该产物生产试跑（端口 4181） | 登录正常 → 列表 4 行 → 工作台 PDF 首屏「第 1 / 3 页」、3 张画布 522×738、2806 红像素 + 1693 深色像素 → 下一页「第 2 / 3 页」（scrollTop 762）→「第 3 / 3 页」且「下一页」禁用；Worker 从 `/assets/pdf.worker.min-CIqJB0yW.mjs` 加载；右栏「暂无识别结果」；控制台无 error / warning，无网络失败 |
+
 ### 后续验证（下一阶段接真实 OCR 时单独核对）
 
 1. **单张图片**：沿用已实测的原图像素坐标基准（`license-scan.png` 为 900×1400；真实上传后需核对像素尺寸与 `bbox` 坐标来源是否同一坐标系）。

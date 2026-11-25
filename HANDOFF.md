@@ -12,7 +12,7 @@
 - 数据源仍是前端模拟：`frontend/src/mock/tasks.ts`（sessionStorage 键 `compliance-task-mock-v3`，材料新增 `format` / `source` 字段）+ `frontend/src/mock/previews.ts`。
 - 样例原件由代码生成（`frontend/scripts/generate-sample-materials.mjs`，无头 Chrome 出图）：`frontend/public/samples/license-scan.png`（900×1400 合成营业执照）与 `frontend/public/samples/charter.pdf`（3 页合成章程，页码醒目）；两者挂在种子 `T2026001` 上（材料 `M2026001-1` PDF / `M2026001-4` PNG）。
 - 附带项：新增 `frontend/src/assets/styles/core/hover.scss`，全局按钮 hover 反馈（上浮 1px + 阴影；文本型按钮只换背景），暗色模式跟随主题变量。
-- 验证：`vue-tsc --noEmit` 0 error；`pnpm build` ✓；浏览器逐项验收全过（截图 `docs/screenshots/cp82-*`）；干净克隆构建与生产产物试跑记录在 `TEST_TODO.md`。
+- 验证：`vue-tsc --noEmit` 0 error；`pnpm build` ✓；浏览器逐项验收全过（截图 `docs/screenshots/cp82-*`）；**最终 SHA 已做干净克隆构建 + 生产产物试跑复验**，记录在 `TEST_TODO.md`（含 pdf.js 依赖 rAF、反向代理须保留 Host 两个环境坑）。
 - 未做（后续阶段）：真实上传、PaddleOCR 接口与轮询、PDF 缩略图 / 旋转 / 批注、`bbox` 与区域高亮、检查项摘录与人工决定、数据库改动。
 
 ## 运行方式
